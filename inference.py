@@ -7,7 +7,7 @@ from collections import OrderedDict
 import pandas as pd
 import torch
 
-from dataloader import MultiLabelDataset
+from dataloader import MultiLabelDatasetEvaluation
 from torch.utils.data import DataLoader
 
 import torch.nn as nn
@@ -25,7 +25,6 @@ MODEL_NAMES =  TORCHVISION_MODEL_NAMES + SEWER_MODEL_NAMES + MULTILABEL_MODEL_NA
 def evaluate(dataloader, model, device):
     model.eval()
 
-    rawPredictions = None
     sigmoidPredictions = None
     imgPathsList = []
 
@@ -40,23 +39,18 @@ def evaluate(dataloader, model, device):
 
             images = images.to(device)
 
-            output = model(images)
-
-            rawOutput = output.detach().cpu().numpy()
-            
+            output = model(images)            
 
             sigmoidOutput = sigmoid(output).detach().cpu().numpy()
             
 
-            if rawPredictions is None:
-                rawPredictions = rawOutput
+            if sigmoidPredictions is None:
                 sigmoidPredictions = sigmoidOutput
             else:
-                rawPredictions = np.vstack((rawPredictions, rawOutput))
                 sigmoidPredictions = np.vstack((sigmoidPredictions, sigmoidOutput))
 
             imgPathsList.extend(list(imgPaths))
-    return rawPredictions, sigmoidPredictions, imgPathsList
+    return sigmoidPredictions, imgPathsList
 
 
 def load_model(model_path, best_weights=False):
@@ -106,6 +100,7 @@ def run_inference(args):
     model_path = args["model_path"]
     outputPath = args["results_output"]
     best_weights = args["best_weights"]
+    split = args["split"]
     
     if not os.path.isdir(outputPath):
         os.makedirs(outputPath)
@@ -139,11 +134,11 @@ def run_inference(args):
         ])
 
         
-    val_dataset = MultiLabelDataset(ann_root, data_root, split="Val", transform=eval_transform, onlyDefects=False)
-    val_dataloader = DataLoader(val_dataset, batch_size=args["batch_size"], num_workers = args["workers"], pin_memory=True)
+    dataset = MultiLabelDatasetEvaluation(ann_root, data_root, split=split, transform=eval_transform, onlyDefects=False)
+    dataloader = DataLoader(dataset, batch_size=args["batch_size"], num_workers = args["workers"], pin_memory=True)
 
     if training_mode in ["e2e", "defect"]:
-        labelNames = val_dataset.LabelNames
+        labelNames = dataset.LabelNames
     elif training_mode == "binary":
         labelNames = ["Defect"]
     elif training_mode == "binaryrelevance":
@@ -155,21 +150,15 @@ def run_inference(args):
 
     # Validation results
     print("VALIDATION")
-    val_raw_predictions, val_sigmoid_predictions, val_imgPaths = evaluate(val_dataloader, model, device)
+    sigmoid_predictions, val_imgPaths = evaluate(dataloader, model, device)
 
-    val_raw_dict = {}
-    val_sigmoid_dict = {}
-    val_raw_dict["Filename"] = val_imgPaths
-    val_sigmoid_dict["Filename"] = val_imgPaths
+    sigmoid_dict = {}
+    sigmoid_dict["Filename"] = val_imgPaths
     for idx, header in enumerate(labelNames):
-        val_raw_dict[header] = val_raw_predictions[:,idx]
-        val_sigmoid_dict[header] = val_sigmoid_predictions[:,idx]
+        sigmoid_dict[header] = sigmoid_predictions[:,idx]
 
-    val_raw_df = pd.DataFrame(val_raw_dict)
-    val_raw_df.to_csv(os.path.join(outputPath, "{}_val_raw.csv".format(model_version)), sep=",", index=False)
-
-    val_sigmoid_df = pd.DataFrame(val_sigmoid_dict)
-    val_sigmoid_df.to_csv(os.path.join(outputPath, "{}_val_sigmoid.csv".format(model_version)), sep=",", index=False)
+    sigmoid_df = pd.DataFrame(sigmoid_dict)
+    sigmoid_df.to_csv(os.path.join(outputPath, "{}_{}_sigmoid.csv".format(model_version, split.lower())), sep=",", index=False)
 
 
 if __name__ == "__main__":
@@ -183,6 +172,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_path", type=str)
     parser.add_argument("--best_weights", action="store_true", help="If true 'model_path' leads to a specific weight file. If False it leads to the output folder of lightning_trainer where the last.ckpt file is used to read the best model weights.")
     parser.add_argument("--results_output", type=str, default = "./results")
+    parser.add_argument("--split", type=str, default = "Val", choices=["Train", "Val", "Test"])
 
 
 

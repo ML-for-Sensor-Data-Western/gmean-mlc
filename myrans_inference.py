@@ -12,7 +12,7 @@ def main(args):
     modelPath = args["model_path"]
     dataDir = args["gist_dir"]
     output_dir_sub = args["output_dir"]
-    
+    split = args["split"]
 
     if "binary" in modelPath:
         stage = "binary"
@@ -33,43 +33,30 @@ def main(args):
     if not os.path.isdir(outputDir):
         os.makedirs(outputDir)
     
-    gistVal, _, filesVal, _ = loadData(dataDir, "Val", dataStage)
-    gistTest, _, filesTest, _ = loadData(dataDir, "Test", dataStage)
+    gistFeats, _, fileNames, _ = loadData(dataDir, split, dataStage)
     
     with open(os.path.join(modelPath), 'rb') as fid:
         forest = pickle.load(fid) 
 
     start_time = time.time()
 
-    valProb = forest.predict_proba(gistVal)
-    testProb = forest.predict_proba(gistTest)
+    prob = forest.predict_proba(gistFeats)
 
-    if isinstance(valProb, list):
-        valProb = np.array(valProb)
-        testProb = np.array(testProb)
-    if valProb.ndim == 2:
-        valProb = valProb.reshape(-1, valProb.shape[0], valProb.shape[1])
-        testProb = testProb.reshape(-1, testProb.shape[0], testProb.shape[1])
+    if isinstance(prob, list):
+        prob = np.array(prob)
+    if prob.ndim == 2:
+        prob = prob.reshape(-1, prob.shape[0], prob.shape[1])
 
 
     expname = os.path.basename(os.path.normpath(modelPath))
     
-    val_sigmoid_dict = {}
-    val_sigmoid_dict["Filename"] = filesVal
+    sigmoid_dict = {}
+    sigmoid_dict["Filename"] = fileNames
     for idx, header in enumerate(Labels):
-        val_sigmoid_dict[header] = valProb[idx, :, 0]
+        sigmoid_dict[header] = prob[idx, :, 0]
 
-    df_val = pd.DataFrame(val_sigmoid_dict)
-    df_val.to_csv(os.path.join(outputDir, "Myrans", "Myrans_{}_val_sigmoid.csv".format(expname)), sep=",", index=False)
-
-    
-    test_sigmoid_dict = {}
-    test_sigmoid_dict["Filename"] = filesTest
-    for idx, header in enumerate(Labels):
-        test_sigmoid_dict[header] = testProb[idx,:, 0]
-
-    df_test = pd.DataFrame(test_sigmoid_dict)
-    df_test.to_csv(os.path.join(outputDir, "Myrans", "Myrans_{}_test_sigmoid.csv".format(expname)), sep=",", index=False)
+    df_out = pd.DataFrame(sigmoid_dict)
+    df_out.to_csv(os.path.join(outputDir, "Myrans", "Myrans_{}_{}_sigmoid.csv".format(expname, split.lower())), sep=",", index=False)
 
     end_time = time.time()
 
@@ -83,6 +70,7 @@ if __name__ == "__main__":
     ap.add_argument("--model_path", type=str, default=None)
     ap.add_argument("--gist_dir", type=str, default="./GISTFeatures")
     ap.add_argument("--output_dir", type=str, default="./results")
+    ap.add_argument("--split", type=str, default = "Val", choices=["Train", "Val", "Test"])
 
     args = vars(ap.parse_args())
     main(args)

@@ -80,7 +80,7 @@ def calcualteResults(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output_path", type=str, default = "./results")
-    parser.add_argument("--split", type=str, default = "Test", choices=["Train", "Val", "Test"])
+    parser.add_argument("--split", type=str, default = "Val", choices=["Train", "Val", "Test"])
     parser.add_argument("--score_path", type=str, default = "./results")
     parser.add_argument("--gt_path", type=str, default = "./annotations")
 
