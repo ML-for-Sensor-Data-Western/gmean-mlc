@@ -30,6 +30,7 @@ def iterateResulsDirs(args):
                         "data_root": args["data_root"],
                         "batch_size": args["batch_size"],
                         "workers": args["workers"],
+                        "split": args["split"],
                         "model_path": subdir,
                         "results_output": output_dir,
                         "model_version": model_version}
@@ -53,6 +54,7 @@ if __name__ == "__main__":
     parser.add_argument('--workers', type=int, default=4)
     parser.add_argument("--results_output", type=str, default = "./results")
     parser.add_argument("--log_input", type=str)
+    parser.add_argument("--split", type=str, default = "Val", choices=["Train", "Val", "Test"])
 
     args = vars(parser.parse_args())
 

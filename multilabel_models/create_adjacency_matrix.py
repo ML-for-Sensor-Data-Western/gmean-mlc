@@ -66,7 +66,7 @@ def create_adjacency_matrix(annRoot, split):
 
     num_classes = len(LabelNames)
 
-    gtPath = os.path.join(annRoot, "ALL_GT_{}.csv".format(split))
+    gtPath = os.path.join(annRoot, "SewerML_{}.csv".format(split))
     gt = pd.read_csv(gtPath, sep=",", encoding="utf-8", usecols = LabelNames)
 
     adjacency_matrix = np.zeros((num_classes, num_classes))
