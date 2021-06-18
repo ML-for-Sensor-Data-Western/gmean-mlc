@@ -7,7 +7,7 @@ from collections import OrderedDict
 import pandas as pd
 import torch
 
-from dataloader import MultiLabelDatasetEvaluation
+from dataloader import MultiLabelDatasetInference
 from torch.utils.data import DataLoader
 
 import torch.nn as nn
@@ -33,7 +33,7 @@ def evaluate(dataloader, model, device):
     dataLen = len(dataloader)
     
     with torch.no_grad():
-        for i, (images, _, imgPaths) in enumerate(dataloader):
+        for i, (images, imgPaths) in enumerate(dataloader):
             if i % 100 == 0:
                 print("{} / {}".format(i, dataLen))
 
@@ -42,7 +42,6 @@ def evaluate(dataloader, model, device):
             output = model(images)            
 
             sigmoidOutput = sigmoid(output).detach().cpu().numpy()
-            
 
             if sigmoidPredictions is None:
                 sigmoidPredictions = sigmoidOutput
@@ -134,7 +133,7 @@ def run_inference(args):
         ])
 
         
-    dataset = MultiLabelDatasetEvaluation(ann_root, data_root, split=split, transform=eval_transform, onlyDefects=False)
+    dataset = MultiLabelDatasetInference(ann_root, data_root, split=split, transform=eval_transform, onlyDefects=False)
     dataloader = DataLoader(dataset, batch_size=args["batch_size"], num_workers = args["workers"], pin_memory=True)
 
     if training_mode in ["e2e", "defect"]:
