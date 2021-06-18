@@ -65,9 +65,9 @@ class MultiLabelDataset(Dataset):
         return torch.as_tensor(class_weights).squeeze()
 
 
-class MultiLabelDatasetEvaluation(Dataset):
+class MultiLabelDatasetInference(Dataset):
     def __init__(self, annRoot, imgRoot, split="Train", transform=None, loader=default_loader, onlyDefects=False):
-        super(MultiLabelDatasetEvaluation, self).__init__()
+        super(MultiLabelDatasetInference, self).__init__()
         self.imgRoot = imgRoot
         self.annRoot = annRoot
         self.split = split
