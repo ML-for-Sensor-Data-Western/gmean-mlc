@@ -59,7 +59,7 @@ def main(args):
     results = []
 
 
-    for split in ["Train", "Val"]:
+    for split in ["Train", "Val", "Test"]:
         gtPath = os.path.join(annDir, "SewerML_{}.csv".format(split))
         gtDF = pd.read_csv(gtPath, encoding="utf-8")
 

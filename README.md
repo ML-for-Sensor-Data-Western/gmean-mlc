@@ -86,13 +86,13 @@ python calculate_results.py --output_path <path_to_metric_results> --split <data
 The validation prediction of the CNN classifiers when trained using the lighting_trainer script can be obtained the iterate_results_dir.py script. The script iterates over a directory contain a subdirectory per trained model.
 
 ```
-python iterate_results_dir.py --ann_root <path_to_annotations> --data_root <path_to_data> --results_output <path_to_results> --log_input <path_to_model_logs>
+python iterate_results_dir.py --ann_root <path_to_annotations> --data_root <path_to_data> --results_output <path_to_results> --log_input <path_to_model_logs> --split <dataset_split_to_use>
 ```
 
 If a single model needs to be evaluted this can be done using the inference.py script. Additionally, if a specific set of weights needs to be used, this can be done by setting the --best_weights flag. Otherwise it is expected that there is a last.ckpt file which points to the best performing model weights.
 
 ```
-python inference.py --ann_root <path_to_annotations> --data_root <path_to_data> --results_output <path_to_results> --model_path <path_to_models>
+python inference.py --ann_root <path_to_annotations> --data_root <path_to_data> --results_output <path_to_results> --model_path <path_to_models> --split <dataset_split_to_use>
 ```
 
 
@@ -101,7 +101,7 @@ python inference.py --ann_root <path_to_annotations> --data_root <path_to_data> 
 The extra trees classifiers can be evaluated using the myrans_inference.py script.
 
 ```
-python myrans_inference.py --model_path <path_to_models> --gist_dir <path_to_gist_features> --output_dir <path_to_results>
+python myrans_inference.py --model_path <path_to_models> --gist_dir <path_to_gist_features> --output_dir <path_to_results> --split <dataset_split_to_use>
 ```
 
 
@@ -115,7 +115,7 @@ The replace method uses the defect probability of the first stage for all defect
 The multiply method multiplies the defect probability of the first stage with the individual defect probabilites fro mthe second stage.
 
 ```
-python combineTwoStage.py --outputName <output_filepath> --stage_one_path <stage_one_filepath> --stage_two_path <stage_two_filepathh> --split val --strategy "replace"
+python combineTwoStage.py --outputName <output_filepath> --stage_one_path <stage_one_filepath> --stage_two_path <stage_two_filepathh> --split <dataset_split_to_use> --strategy <how_to_merge_predictions>
 ```
 
 

@@ -64,6 +64,45 @@ class MultiLabelDataset(Dataset):
             class_weights.append(np.asarray([class_weight]))
         return torch.as_tensor(class_weights).squeeze()
 
+
+class MultiLabelDatasetEvaluation(Dataset):
+    def __init__(self, annRoot, imgRoot, split="Train", transform=None, loader=default_loader, onlyDefects=False):
+        super(MultiLabelDatasetEvaluation, self).__init__()
+        self.imgRoot = imgRoot
+        self.annRoot = annRoot
+        self.split = split
+
+        self.transform = transform
+        self.loader = default_loader
+
+        self.LabelNames = Labels.copy()
+        self.LabelNames.remove("VA")
+        self.LabelNames.remove("ND")
+        self.onlyDefects = onlyDefects
+
+        self.num_classes = len(self.LabelNames)
+
+        self.loadAnnotations()
+
+    def loadAnnotations(self):
+        gtPath = os.path.join(self.annRoot, "SewerML_{}.csv".format(self.split))
+        gt = pd.read_csv(gtPath, sep=",", encoding="utf-8", usecols = ["Filename"])
+
+        self.imgPaths = gt["Filename"].values
+        
+    def __len__(self):
+        return len(self.imgPaths)
+
+    def __getitem__(self, index):
+        path = self.imgPaths[index]
+
+        img = self.loader(os.path.join(self.imgRoot, path))
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return img, path
+
+
 class BinaryRelevanceDataset(Dataset):
     def __init__(self, annRoot, imgRoot, split="Train", transform=None, loader=default_loader, defect=None):
         super(BinaryRelevanceDataset, self).__init__()
