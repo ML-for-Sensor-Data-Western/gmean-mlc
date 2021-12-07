@@ -204,7 +204,6 @@ def run_cli():
     parser.add_argument('--log_version', type=int, default=1)
     parser.add_argument('--training_mode', type=str, default="e2e", choices=["e2e", "binary", "binaryrelevance", "defect"])
     parser.add_argument('--br_defect', type=str, default=None, choices=[None, "RB","OB","PF","DE","FS","IS","RO","IN","AF","BE","FO","GR","PH","PB","OS","OP","OK"])
-    parser.add_argument("--lambd", type=float, default=1.0)
 
 
     # add TRAINER level args
