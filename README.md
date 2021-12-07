@@ -159,7 +159,7 @@ A live leaderboard can be found at the associated [Codalab Challenge](https://co
 
 Parts of the code builds upon prior work:
 
-- The GraphConvolutional layer is obtained from the ML-GCN authors implementation, an adaption of Thomas Kipf's original implementation. Found at: [https://gist.github.com/pmeier/f5e05285cd5987027a98854a5d155e27](https://gist.github.com/pmeier/f5e05285cd5987027a98854a5d155e27)
+- The GraphConvolutional layer is obtained from the ML-GCN authors implementation, an adaption of Thomas Kipf's original implementation. Found at: [https://github.com/tkipf/pygcn](https://github.com/tkipf/pygcn)
 - Code to calculate the dataset mean and standard deviation was found at: [https://gist.github.com/pmeier/f5e05285cd5987027a98854a5d155e27](https://gist.github.com/pmeier/f5e05285cd5987027a98854a5d155e27)
 - The TResNet model code comes from the Author's repository: [https://github.com/Alibaba-MIIL/TResNet](https://github.com/Alibaba-MIIL/TResNet])
 - The evlauation code is partly based on the evaluation code from the ML-GCN authors: [https://github.com/Megvii-Nanjing/ML-GCN/](https://github.com/Megvii-Nanjing/ML-GCN/)
