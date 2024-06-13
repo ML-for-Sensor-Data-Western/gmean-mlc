@@ -9,7 +9,7 @@ from torchvision import models as torch_models
 from torchvision import transforms
 
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateLogger
+from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from lightning_datamodules import MultiLabelDataModule, BinaryDataModule, BinaryRelevanceDataModule
@@ -74,30 +74,20 @@ class MultiLabelModel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y, _ = batch
         loss = self.train_function(x, y)
-        
-        # .log sends to tensorboard/logger, prog_bar also sends to the progress bar
-        result = pl.TrainResult(loss)
-        result.log('train_loss', loss, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True)
-        
-        return result
+        self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True, batch_size=self.hparams.batch_size)        
+        return loss
 
     def validation_step(self, batch, batch_idx):
         x, y, _ = batch
         loss = self.normal_loss(x, y)
-
-        # lightning monitors 'checkpoint_on' to know when to checkpoint (this is a tensor)
-        result = pl.EvalResult(checkpoint_on=loss)
-        result.log('val_loss', loss, sync_dist=True)
-        return result
+        self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True, batch_size=self.hparams.batch_size)
+        return loss
 
     def test_step(self, batch, batch_idx):
         x, y, _ = batch
         loss = self.normal_loss(x, y)
-
-        # lightning monitors 'checkpoint_on' to know when to checkpoint (this is a tensor)
-        result = pl.EvalResult(checkpoint_on=loss)
-        result.log('test_loss', loss, sync_dist=True)
-        return result
+        self.log('test_loss', loss)
+        return loss
 
 
     def configure_optimizers(self):
@@ -105,17 +95,6 @@ class MultiLabelModel(pl.LightningModule):
         scheduler = torch.optim.lr_scheduler.MultiStepLR(optim, milestones=[30, 60, 80], gamma=0.1)
 
         return [optim], [scheduler]
-
-    @staticmethod
-    def add_model_specific_args(parent_parser):
-        parser = ArgumentParser(parents=[parent_parser], add_help=False)
-        parser.add_argument('--learning_rate', type=float, default=0.1)
-        parser.add_argument('--momentum', type=float, default=0.9)
-        parser.add_argument('--weight_decay', type=float, default=0.0001)
-        parser.add_argument('--model', type=str, default="resnet18", choices=MultiLabelModel.MODEL_NAMES)
-        return parser
-
-
 
 
 def main(args):
@@ -170,19 +149,18 @@ def main(args):
     logger_path = os.path.join(args.log_save_dir, args.model, prefix + "version_" + str(args.log_version))
 
     checkpoint_callback = ModelCheckpoint(
-        filepath=os.path.join(logger_path, '{epoch:02d}-{val_loss:.2f}'),
-        save_top_k=5,
+        dirpath=logger_path,
+        filename='{epoch:02d}-{val_loss:.2f}',
+        save_top_k=3,
         save_last = True,
         verbose=False,
         monitor="val_loss",
         mode='min',
-        prefix='',
-        period=1
     )
 
-    lr_monitor = LearningRateLogger(logging_interval='step')
+    lr_monitor = LearningRateMonitor(logging_interval='step')
 
-    trainer = pl.Trainer.from_argparse_args(args, terminate_on_nan = True, benchmark = True, max_epochs=args.max_epochs, logger=logger, checkpoint_callback=checkpoint_callback, callbacks=[lr_monitor])
+    trainer = pl.Trainer(num_nodes=args.gpus, precision=args.precision, max_epochs=args.max_epochs, benchmark = True, logger=logger, callbacks=[checkpoint_callback, lr_monitor])
 
     try:
         trainer.fit(light_model, dm)
@@ -204,18 +182,21 @@ def run_cli():
     parser.add_argument('--log_version', type=int, default=1)
     parser.add_argument('--training_mode', type=str, default="e2e", choices=["e2e", "binary", "binaryrelevance", "defect"])
     parser.add_argument('--br_defect', type=str, default=None, choices=[None, "RB","OB","PF","DE","FS","IS","RO","IN","AF","BE","FO","GR","PH","PB","OS","OP","OK"])
-
-
-    # add TRAINER level args
-    parser = pl.Trainer.add_argparse_args(parser)
-
-    # add MODEL level args
-    parser = MultiLabelModel.add_model_specific_args(parser)
+    # Trainer args
+    parser.add_argument('--precision', type=int, default=32, choices=[16, 32])
+    parser.add_argument('--max_epochs', type=int, default=100)
+    parser.add_argument('--gpus', type=int, default=1)
+    # Model args
+    parser.add_argument('--model', type=str, default="resnet18", choices=MultiLabelModel.MODEL_NAMES)
+    parser.add_argument('--learning_rate', type=float, default=1e-2)
+    parser.add_argument('--momentum', type=float, default=0.9)
+    parser.add_argument('--weight_decay', type=float, default=0.0001)
+    
     args = parser.parse_args()
 
-    # Adjust learning rate to amount of nodes/GPUs
+    # Adjust learning rate to amount of GPUs
     args.workers =  max(0, min(8, 4*args.gpus))
-    args.learning_rate = args.learning_rate * (args.gpus * args.num_nodes * args.batch_size) / 256
+    args.learning_rate = args.learning_rate * (args.gpus * args.batch_size) / 256
 
     main(args)
 
