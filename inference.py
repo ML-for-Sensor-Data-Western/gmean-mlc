@@ -73,11 +73,9 @@ def load_model(model_path, best_weights=False):
     
     # Load best checkpoint
 
-    if best_weights:
-        best_model = model_last_ckpt
-    else:
-        best_model_path = model_last_ckpt["checkpoint_callback_best_model_path"]
-        best_model = torch.load(best_model_path)
+    
+    best_model = model_last_ckpt
+    
 
     best_model_state_dict = best_model["state_dict"]
 
