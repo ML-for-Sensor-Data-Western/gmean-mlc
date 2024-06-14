@@ -9,11 +9,11 @@ Labels = ["RB","OB","PF","DE","FS","IS","RO","IN","AF","BE","FO","GR","PH","PB",
 def combineTwoStage(args):
     strategy = args["strategy"]
 
-    stageOnePath = args["stageOnePath"]
-    stageTwoPath = args["stageTwoPath"]
+    stageOnePath = args["stage_one_path"]
+    stageTwoPath = args["stage_two_path"]
 
-    outputPath = args["outputPath"]
-    outputName = args["outputName"]
+    outputPath = args["output_path"]
+    outputName = args["output_name"]
     split = args["split"]
 
     stageOne = pd.read_csv(stageOnePath, sep=",")
@@ -49,7 +49,7 @@ def combineTwoStage(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output_path", type=str, default = "./results")
-    parser.add_argument("--output_mame", type=str)
+    parser.add_argument("--output_name", type=str)
     parser.add_argument("--strategy", type=str, default = "replace", choices=["replace", "multiply"])
     parser.add_argument("--split", type=str, default = "test", choices=["train", "val", "test"])
     parser.add_argument("--stage_one_path", type=str)
