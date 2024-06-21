@@ -18,6 +18,11 @@ from lightning_datamodules import (
     MultiLabelDataModule,
 )
 
+class CustomLogger(TensorBoardLogger):
+    def log_metrics(self, metrics, step=None):
+        if "epoch" in metrics:
+            step = metrics['epoch']
+        super().log_metrics(metrics, step)
 
 class MultiLabelModel(pl.LightningModule):
     TORCHVISION_MODEL_NAMES = sorted(
@@ -138,7 +143,9 @@ class MultiLabelModel(pl.LightningModule):
             weight_decay=self.hparams.weight_decay,
         )
         scheduler = torch.optim.lr_scheduler.MultiStepLR(
-            optim, milestones=[30, 60, 80], gamma=0.1
+            #Always adjust when changing number of epochs
+            #Sewer-ML paper recommends 1/3, 2/3, 8/9 of total epochs
+            optim, milestones=[10, 20, 26], gamma=0.1
         )
 
         return [optim], [scheduler]
@@ -229,12 +236,19 @@ def main(args):
     prefix = "{}-".format(args.training_mode)
     if args.training_mode == "binaryrelevance":
         prefix += args.br_defect
-
+    """
     logger = TensorBoardLogger(
         save_dir=args.log_save_dir,
         name=args.model,
         version=prefix + "version_" + str(args.log_version),
     )
+    """
+    logger = CustomLogger(
+        save_dir=args.log_save_dir,
+        name=args.model,
+        version=prefix + "version_" + str(args.log_version),
+    )
+    
 
     logger_path = os.path.join(
         args.log_save_dir, args.model, prefix + "version_" + str(args.log_version)
