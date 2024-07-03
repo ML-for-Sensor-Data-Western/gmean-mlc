@@ -20,6 +20,7 @@ from lightning_datamodules import (
 
 import ray
 from ray import tune
+from ray.tune import CLIReporter
 from ray.tune.integration.pytorch_lightning import TuneReportCallback, TuneReportCheckpointCallback
 from ray.tune.schedulers import ASHAScheduler
 
@@ -294,6 +295,7 @@ def main(config, args):
         benchmark=True,
         logger=logger,
         callbacks=[checkpoint_callback, lr_monitor, tune_callback],
+        enable_progress_bar=False
     )
 
     try:
@@ -345,7 +347,13 @@ def run_cli():
     ashascheduler = ASHAScheduler(
         metric='val_loss',
         mode='min',
-        max_t=args.max_epochs
+        
+    )
+
+    reporter = CLIReporter(
+        parameter_columns=["batch_size", "learning_rate", "momentum", "weight_decay"],
+        metric_columns=["val_loss", "training_iteration"],
+        print_intermediate_tables=False
     )
 
     if args.use_tuner:
@@ -356,11 +364,13 @@ def run_cli():
             config=config,
             scheduler=ashascheduler,
             num_samples=10,
-            name='tune_experiment',
-            storage_path="E:\quinn\\ray_tune"
+            name='%s-version_%s' % (args.training_mode, args.log_version),
+            storage_path="%s\%s" % (args.log_save_dir, args.model),
+            progress_reporter=reporter,
+            verbose=0
         )
 
-        print('The best param values are: ', analysis.best_config)
+        print('The best param values are: ', analysis.get_best_config(metric='val_loss', mode='min'))
 
     else:
         main(vars(args), args)
