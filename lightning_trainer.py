@@ -18,15 +18,6 @@ from lightning_datamodules import (
     MultiLabelDataModule,
 )
 
-import ray
-from ray import tune
-from ray.tune.integration.pytorch_lightning import TuneReportCallback, TuneReportCheckpointCallback
-from ray.tune.schedulers import ASHAScheduler
-
-#had to redefine because of value erro: Expected a parent
-class TuneReportCheckpointCallback(TuneReportCheckpointCallback, pl.Callback):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
 class CustomLogger(TensorBoardLogger):
     def log_metrics(self, metrics, step=None):
@@ -161,7 +152,7 @@ class MultiLabelModel(pl.LightningModule):
         return [optim], [scheduler]
 
 
-def main(config, args):
+def main(args):
     pl.seed_everything(1234567890)
 
     # Init data with transforms
@@ -239,12 +230,7 @@ def main(config, args):
     criterion = torch.nn.BCEWithLogitsLoss(pos_weight=dm.class_weights)
 
     light_model = MultiLabelModel(
-        num_classes=dm.num_classes, 
-        criterion=criterion,
-        learning_rate=config["learning_rate"],
-        momentum=config["momentum"],
-        weight_decay=config["weight_decay"],
-        batch_size=config["batch_size"]
+        num_classes=dm.num_classes, criterion=criterion, **vars(args)
     )
 
     # train
@@ -279,11 +265,6 @@ def main(config, args):
         mode="min",
     )
 
-    tune_callback = TuneReportCheckpointCallback(
-        metrics={"val_loss": "val_loss"},
-        on="validation_end"
-
-    )
 
     lr_monitor = LearningRateMonitor(logging_interval="step")
 
@@ -293,7 +274,7 @@ def main(config, args):
         max_epochs=args.max_epochs,
         benchmark=True,
         logger=logger,
-        callbacks=[checkpoint_callback, lr_monitor, tune_callback],
+        callbacks=[checkpoint_callback, lr_monitor],
     )
 
     try:
@@ -327,43 +308,13 @@ def run_cli():
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--weight_decay', type=float, default=0.0001)
 
-    parser.add_argument('--use_tuner', action='store_true', help='If true, Ray Tune will be implemented for hyperparameter')
-
     args = parser.parse_args()
 
     # Adjust learning rate to amount of GPUs
     args.workers = max(0, min(8, 4 * args.gpus))
     args.learning_rate = args.learning_rate * (args.gpus * args.batch_size) / 256
 
-    config = {
-        "batch_size": tune.choice([64, 128, 256, 512]),
-        "learning_rate": tune.loguniform(1e-5, 1e-1),
-        "momentum": tune.uniform(0.5, 0.9),
-        "weight_decay": tune.loguniform(1e-6, 1e-3),
-    }
-
-    ashascheduler = ASHAScheduler(
-        metric='val_loss',
-        mode='min',
-        max_t=args.max_epochs
-    )
-
-    if args.use_tuner:
-
-        analysis = tune.run(
-            tune.with_parameters(main, args=args),
-            resources_per_trial={'cpu': 4, 'gpu': args.gpus},
-            config=config,
-            scheduler=ashascheduler,
-            num_samples=10,
-            name='tune_experiment',
-            storage_path="E:\quinn\\ray_tune"
-        )
-
-        print('The best param values are: ', analysis.best_config)
-
-    else:
-        main(vars(args), args)
+    main(args)
 
 
 if __name__ == "__main__":
