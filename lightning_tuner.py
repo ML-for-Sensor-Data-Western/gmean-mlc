@@ -24,7 +24,7 @@ from ray.tune.integration.pytorch_lightning import TuneReportCallback, TuneRepor
 from ray.tune.schedulers import ASHAScheduler
 
 #had to redefine because of value erro: Expected a parent
-class TuneReportCheckpointCallback(TuneReportCheckpointCallback, pl.Callback):
+class MyTuneReportCheckpointCallback(TuneReportCheckpointCallback, pl.Callback):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -279,7 +279,7 @@ def main(config, args):
         mode="min",
     )
 
-    tune_callback = TuneReportCheckpointCallback(
+    tune_callback = MyTuneReportCheckpointCallback(
         metrics={"val_loss": "val_loss"},
         on="validation_end"
 
