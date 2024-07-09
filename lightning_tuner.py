@@ -117,6 +117,7 @@ def main(config, args):
         momentum=config["momentum"],
         weight_decay=config["weight_decay"],
         batch_size=config["batch_size"],
+        lr_steps=[15,30,40]
     )
 
     # train

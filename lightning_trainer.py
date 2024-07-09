@@ -99,7 +99,7 @@ def main(args):
     criterion = torch.nn.BCEWithLogitsLoss(pos_weight=dm.class_weights)
 
     light_model = MultiLabelModel(
-        num_classes=dm.num_classes, criterion=criterion, **vars(args)
+        num_classes=dm.num_classes, criterion=criterion, lr_steps=[30,60,80], **vars(args)
     )
 
     # train
