@@ -3,10 +3,12 @@ from argparse import ArgumentParser
 
 import pytorch_lightning as pl
 import torch
-import torch.nn.functional as F
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
-from torch import nn
+from ray import tune
+from ray.tune import CLIReporter
+from ray.tune.integration.pytorch_lightning import TuneReportCheckpointCallback
+from ray.tune.schedulers import ASHAScheduler
 from torchvision import models as torch_models
 from torchvision import transforms
 
@@ -18,22 +20,19 @@ from lightning_datamodules import (
     MultiLabelDataModule,
 )
 
-import ray
-from ray import tune
-from ray.tune import CLIReporter
-from ray.tune.integration.pytorch_lightning import TuneReportCallback, TuneReportCheckpointCallback
-from ray.tune.schedulers import ASHAScheduler
 
-#had to redefine because of value erro: Expected a parent
+# had to redefine because of value erro: Expected a parent
 class MyTuneReportCheckpointCallback(TuneReportCheckpointCallback, pl.Callback):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+
 class CustomLogger(TensorBoardLogger):
     def log_metrics(self, metrics, step=None):
         if "epoch" in metrics:
-            step = metrics['epoch']
+            step = metrics["epoch"]
         super().log_metrics(metrics, step)
+
 
 class MultiLabelModel(pl.LightningModule):
     TORCHVISION_MODEL_NAMES = sorted(
@@ -154,9 +153,11 @@ class MultiLabelModel(pl.LightningModule):
             weight_decay=self.hparams.weight_decay,
         )
         scheduler = torch.optim.lr_scheduler.MultiStepLR(
-            #Always adjust when changing number of epochs
-            #Sewer-ML paper recommends 1/3, 2/3, 8/9 of total epochs
-            optim, milestones=[15, 30, 40], gamma=0.1
+            # Always adjust when changing number of epochs
+            # Sewer-ML paper recommends 1/3, 2/3, 8/9 of total epochs
+            optim,
+            milestones=[15, 30, 40],
+            gamma=0.1,
         )
 
         return [optim], [scheduler]
@@ -240,13 +241,13 @@ def main(config, args):
     criterion = torch.nn.BCEWithLogitsLoss(pos_weight=dm.class_weights)
 
     light_model = MultiLabelModel(
-        num_classes=dm.num_classes, 
+        num_classes=dm.num_classes,
         criterion=criterion,
         learning_rate=config["learning_rate"],
         momentum=config["momentum"],
         weight_decay=config["weight_decay"],
         batch_size=config["batch_size"],
-        **vars(args)
+        **vars(args),
     )
 
     # train
@@ -265,7 +266,6 @@ def main(config, args):
         name=args.model,
         version=prefix + "version_" + str(args.log_version),
     )
-    
 
     logger_path = os.path.join(
         args.log_save_dir, args.model, prefix + "version_" + str(args.log_version)
@@ -282,9 +282,7 @@ def main(config, args):
     )
 
     tune_callback = MyTuneReportCheckpointCallback(
-        metrics={"val_loss": "val_loss"},
-        on="validation_end"
-
+        metrics={"val_loss": "val_loss"}, on="validation_end"
     )
 
     lr_monitor = LearningRateMonitor(logging_interval="step")
@@ -296,7 +294,7 @@ def main(config, args):
         benchmark=True,
         logger=logger,
         callbacks=[checkpoint_callback, lr_monitor, tune_callback],
-        enable_progress_bar=False
+        enable_progress_bar=False,
     )
 
     try:
@@ -336,7 +334,7 @@ def run_cli():
 
     # Adjust learning rate to amount of GPUs
     args.workers = max(0, min(8, 4 * args.gpus))
-    #args.learning_rate = args.learning_rate * (args.gpus * args.batch_size) / 256
+    # args.learning_rate = args.learning_rate * (args.gpus * args.batch_size) / 256
 
     config = {
         "batch_size": tune.choice([128, 256, 512]),
@@ -346,32 +344,33 @@ def run_cli():
     }
 
     ashascheduler = ASHAScheduler(
-        metric='val_loss',
-        mode='min',
-        
+        metric="val_loss",
+        mode="min",
     )
 
     reporter = CLIReporter(
         parameter_columns=["batch_size", "learning_rate", "momentum", "weight_decay"],
         metric_columns=["val_loss", "training_iteration"],
-        print_intermediate_tables=False
+        print_intermediate_tables=False,
     )
 
     if args.use_tuner:
-
         analysis = tune.run(
             tune.with_parameters(main, args=args),
-            resources_per_trial={'cpu': 4, 'gpu': args.gpus},
+            resources_per_trial={"cpu": 4, "gpu": args.gpus},
             config=config,
             scheduler=ashascheduler,
             num_samples=10,
-            name='%s-version_%s' % (args.training_mode, args.log_version),
+            name="%s-version_%s" % (args.training_mode, args.log_version),
             storage_path="%s\%s" % (args.log_save_dir, args.model),
             progress_reporter=reporter,
-            verbose=0
+            verbose=0,
         )
 
-        print('The best param values are: ', analysis.get_best_config(metric='val_loss', mode='min'))
+        print(
+            "The best param values are: ",
+            analysis.get_best_config(metric="val_loss", mode="min"),
+        )
 
     else:
         main(config, args)
