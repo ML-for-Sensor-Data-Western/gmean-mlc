@@ -38,6 +38,7 @@ class MultiLabelModel(pl.LightningModule):
         learning_rate=1e-2,
         momentum=0.9,
         weight_decay=0.0001,
+        batch_size=64,
         lr_steps: list | None = None,
         criterion=torch.nn.BCEWithLogitsLoss,
         **kwargs,
@@ -69,9 +70,13 @@ class MultiLabelModel(pl.LightningModule):
         if callable(getattr(self.criterion, "set_device", None)):
             self.criterion.set_device(self.device)
         
+        self.learning_rate = learning_rate
+        self.momentum = momentum
+        self.weight_decay = weight_decay
         self.lr_steps = lr_steps
         if lr_steps is None:
             self.lr_steps = LR_STEPS
+        self.batch_size = batch_size
 
     def forward(self, x):
         logits = self.model(x)
@@ -100,7 +105,7 @@ class MultiLabelModel(pl.LightningModule):
             on_step=False,
             on_epoch=True,
             prog_bar=True,
-            batch_size=self.hparams.batch_size,
+            batch_size=self.batch_size,
         )
         return loss
 
@@ -113,7 +118,7 @@ class MultiLabelModel(pl.LightningModule):
             on_step=False,
             on_epoch=True,
             prog_bar=True,
-            batch_size=self.hparams.batch_size,
+            batch_size=self.batch_size,
         )
         return loss
 
@@ -126,9 +131,9 @@ class MultiLabelModel(pl.LightningModule):
     def configure_optimizers(self):
         optim = torch.optim.SGD(
             self.parameters(),
-            lr=self.hparams.learning_rate,
-            momentum=self.hparams.momentum,
-            weight_decay=self.hparams.weight_decay,
+            lr=self.learning_rate,
+            momentum=self.momentum,
+            weight_decay=self.weight_decay,
         )
         scheduler = torch.optim.lr_scheduler.MultiStepLR(
             # Always adjust when changing number of epochs
