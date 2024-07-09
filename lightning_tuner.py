@@ -110,13 +110,13 @@ def main(config, args):
     criterion = torch.nn.BCEWithLogitsLoss(pos_weight=dm.class_weights)
 
     light_model = MultiLabelModel(
+        model=args.model,
         num_classes=dm.num_classes,
         criterion=criterion,
         learning_rate=config["learning_rate"],
         momentum=config["momentum"],
         weight_decay=config["weight_decay"],
         batch_size=config["batch_size"],
-        **vars(args),
     )
 
     # train
@@ -181,7 +181,6 @@ def run_cli():
     parser.add_argument('--notification_email', type=str, default='')
     parser.add_argument('--ann_root', type=str, default='./annotations')
     parser.add_argument('--data_root', type=str, default='./Data')
-    #parser.add_argument('--batch_size', type=int, default=64, help="Size of the batch per GPU")
     parser.add_argument('--workers', type=int, default=4)
     parser.add_argument('--log_save_dir', type=str, default="./logs")
     parser.add_argument('--log_version', type=int, default=1)
@@ -193,11 +192,6 @@ def run_cli():
     parser.add_argument('--gpus', type=int, default=1)
     # Model args
     parser.add_argument('--model', type=str, default="resnet18", choices=MultiLabelModel.MODEL_NAMES)
-    #parser.add_argument('--learning_rate', type=float, default=1e-2)
-    #parser.add_argument('--momentum', type=float, default=0.9)
-    #parser.add_argument('--weight_decay', type=float, default=0.0001)
-
-    parser.add_argument('--use_tuner', action='store_true', help='If true, Ray Tune will be implemented for hyperparameter')
 
     args = parser.parse_args()
 
@@ -223,26 +217,22 @@ def run_cli():
         print_intermediate_tables=False,
     )
 
-    if args.use_tuner:
-        analysis = tune.run(
-            tune.with_parameters(main, args=args),
-            resources_per_trial={"cpu": 4, "gpu": args.gpus},
-            config=config,
-            scheduler=ashascheduler,
-            num_samples=10,
-            name="%s-version_%s" % (args.training_mode, args.log_version),
-            storage_path="%s\%s" % (args.log_save_dir, args.model),
-            progress_reporter=reporter,
-            verbose=0,
-        )
+    analysis = tune.run(
+        tune.with_parameters(main, args=args),
+        resources_per_trial={"cpu": 4, "gpu": args.gpus},
+        config=config,
+        scheduler=ashascheduler,
+        num_samples=10,
+        name="%s-version_%s" % (args.training_mode, args.log_version),
+        storage_path="%s\%s" % (args.log_save_dir, args.model),
+        progress_reporter=reporter,
+        verbose=0,
+    )
 
-        print(
-            "The best param values are: ",
-            analysis.get_best_config(metric="val_loss", mode="min"),
-        )
-
-    else:
-        main(config, args)
+    print(
+        "The best param values are: ",
+        analysis.get_best_config(metric="val_loss", mode="min"),
+    )
 
 
 if __name__ == "__main__":
