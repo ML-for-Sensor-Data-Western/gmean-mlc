@@ -5,6 +5,7 @@ from torchvision import models as torch_models
 import ml_models
 import sewer_models
 
+LR_STEPS = [30,60,80]
 
 class MultiLabelModel(pl.LightningModule):
     TORCHVISION_MODEL_NAMES = sorted(
@@ -37,6 +38,7 @@ class MultiLabelModel(pl.LightningModule):
         learning_rate=1e-2,
         momentum=0.9,
         weight_decay=0.0001,
+        lr_steps: list | None = None,
         criterion=torch.nn.BCEWithLogitsLoss,
         **kwargs,
     ):
@@ -66,6 +68,10 @@ class MultiLabelModel(pl.LightningModule):
 
         if callable(getattr(self.criterion, "set_device", None)):
             self.criterion.set_device(self.device)
+        
+        self.lr_steps = lr_steps
+        if lr_steps is None:
+            self.lr_steps = LR_STEPS
 
     def forward(self, x):
         logits = self.model(x)
@@ -128,7 +134,7 @@ class MultiLabelModel(pl.LightningModule):
             # Always adjust when changing number of epochs
             # Sewer-ML paper recommends 1/3, 2/3, 8/9 of total epochs
             optim,
-            milestones=[30, 60, 80],
+            milestones=self.lr_steps,
             gamma=0.1,
         )
 
