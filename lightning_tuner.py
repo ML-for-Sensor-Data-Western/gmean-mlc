@@ -20,6 +20,7 @@ from lightning_datamodules import (
 
 import ray
 from ray import tune
+from ray.tune import CLIReporter
 from ray.tune.integration.pytorch_lightning import TuneReportCallback, TuneReportCheckpointCallback
 from ray.tune.schedulers import ASHAScheduler
 
@@ -155,7 +156,7 @@ class MultiLabelModel(pl.LightningModule):
         scheduler = torch.optim.lr_scheduler.MultiStepLR(
             #Always adjust when changing number of epochs
             #Sewer-ML paper recommends 1/3, 2/3, 8/9 of total epochs
-            optim, milestones=[30, 60, 80], gamma=0.1
+            optim, milestones=[15, 30, 40], gamma=0.1
         )
 
         return [optim], [scheduler]
@@ -189,7 +190,7 @@ def main(config, args):
 
     if args.training_mode == "e2e":
         dm = MultiLabelDataModule(
-            batch_size=args.batch_size,
+            batch_size=config["batch_size"],
             workers=args.workers,
             ann_root=args.ann_root,
             data_root=args.data_root,
@@ -199,7 +200,7 @@ def main(config, args):
         )
     elif args.training_mode == "defect":
         dm = MultiLabelDataModule(
-            batch_size=args.batch_size,
+            batch_size=config["batch_size"],
             workers=args.workers,
             ann_root=args.ann_root,
             data_root=args.data_root,
@@ -209,7 +210,7 @@ def main(config, args):
         )
     elif args.training_mode == "binary":
         dm = BinaryDataModule(
-            batch_size=args.batch_size,
+            batch_size=config["batch_size"],
             workers=args.workers,
             ann_root=args.ann_root,
             data_root=args.data_root,
@@ -221,7 +222,7 @@ def main(config, args):
             args.br_defect is not None
         ), "Training mode is 'binary_relevance', but no 'br_defect' was stated"
         dm = BinaryRelevanceDataModule(
-            batch_size=args.batch_size,
+            batch_size=config["batch_size"],
             workers=args.workers,
             ann_root=args.ann_root,
             data_root=args.data_root,
@@ -244,7 +245,8 @@ def main(config, args):
         learning_rate=config["learning_rate"],
         momentum=config["momentum"],
         weight_decay=config["weight_decay"],
-        batch_size=config["batch_size"]
+        batch_size=config["batch_size"],
+        **vars(args)
     )
 
     # train
@@ -294,6 +296,7 @@ def main(config, args):
         benchmark=True,
         logger=logger,
         callbacks=[checkpoint_callback, lr_monitor, tune_callback],
+        enable_progress_bar=False
     )
 
     try:
@@ -311,7 +314,7 @@ def run_cli():
     parser.add_argument('--notification_email', type=str, default='')
     parser.add_argument('--ann_root', type=str, default='./annotations')
     parser.add_argument('--data_root', type=str, default='./Data')
-    parser.add_argument('--batch_size', type=int, default=64, help="Size of the batch per GPU")
+    #parser.add_argument('--batch_size', type=int, default=64, help="Size of the batch per GPU")
     parser.add_argument('--workers', type=int, default=4)
     parser.add_argument('--log_save_dir', type=str, default="./logs")
     parser.add_argument('--log_version', type=int, default=1)
@@ -323,9 +326,9 @@ def run_cli():
     parser.add_argument('--gpus', type=int, default=1)
     # Model args
     parser.add_argument('--model', type=str, default="resnet18", choices=MultiLabelModel.MODEL_NAMES)
-    parser.add_argument('--learning_rate', type=float, default=1e-2)
-    parser.add_argument('--momentum', type=float, default=0.9)
-    parser.add_argument('--weight_decay', type=float, default=0.0001)
+    #parser.add_argument('--learning_rate', type=float, default=1e-2)
+    #parser.add_argument('--momentum', type=float, default=0.9)
+    #parser.add_argument('--weight_decay', type=float, default=0.0001)
 
     parser.add_argument('--use_tuner', action='store_true', help='If true, Ray Tune will be implemented for hyperparameter')
 
@@ -333,19 +336,25 @@ def run_cli():
 
     # Adjust learning rate to amount of GPUs
     args.workers = max(0, min(8, 4 * args.gpus))
-    args.learning_rate = args.learning_rate * (args.gpus * args.batch_size) / 256
+    #args.learning_rate = args.learning_rate * (args.gpus * args.batch_size) / 256
 
     config = {
-        "batch_size": tune.choice([64, 128, 256, 512]),
-        "learning_rate": tune.loguniform(1e-5, 1e-1),
-        "momentum": tune.uniform(0.5, 0.9),
-        "weight_decay": tune.loguniform(1e-6, 1e-3),
+        "batch_size": tune.choice([128, 256, 512]),
+        "learning_rate": tune.choice([0.005, 0.01, 0.025, 0.05, 0.075, 0.1]),
+        "momentum": tune.uniform(0.75, 0.9),
+        "weight_decay": tune.choice([0.00001, 0.00005, 0.0001, 0.0005, 0.001]),
     }
 
     ashascheduler = ASHAScheduler(
         metric='val_loss',
         mode='min',
-        max_t=args.max_epochs
+        
+    )
+
+    reporter = CLIReporter(
+        parameter_columns=["batch_size", "learning_rate", "momentum", "weight_decay"],
+        metric_columns=["val_loss", "training_iteration"],
+        print_intermediate_tables=False
     )
 
     if args.use_tuner:
@@ -356,14 +365,16 @@ def run_cli():
             config=config,
             scheduler=ashascheduler,
             num_samples=10,
-            name='tune_experiment',
-            storage_path="E:\quinn\\ray_tune"
+            name='%s-version_%s' % (args.training_mode, args.log_version),
+            storage_path="%s\%s" % (args.log_save_dir, args.model),
+            progress_reporter=reporter,
+            verbose=0
         )
 
-        print('The best param values are: ', analysis.best_config)
+        print('The best param values are: ', analysis.get_best_config(metric='val_loss', mode='min'))
 
     else:
-        main(vars(args), args)
+        main(config, args)
 
 
 if __name__ == "__main__":
