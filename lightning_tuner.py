@@ -116,7 +116,6 @@ def main(config, args):
         learning_rate=config["learning_rate"],
         momentum=config["momentum"],
         weight_decay=config["weight_decay"],
-        batch_size=config["batch_size"],
         lr_steps=[15, 30, 40],
     )
 
@@ -182,8 +181,6 @@ def short_dirname(trial):
 def run_cli():
     # add PROGRAM level args
     parser = ArgumentParser()
-    parser.add_argument("--conda_env", type=str, default="Pytorch-Lightning")
-    parser.add_argument("--notification_email", type=str, default="")
     parser.add_argument("--ann_root", type=str, default="./annotations")
     parser.add_argument("--data_root", type=str, default="./Data")
     parser.add_argument("--workers", type=int, default=4)
