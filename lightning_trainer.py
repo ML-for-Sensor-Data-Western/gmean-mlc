@@ -18,8 +18,9 @@ from lightning_model import MultiLabelModel
 class CustomLogger(TensorBoardLogger):
     def log_metrics(self, metrics, step=None):
         if "epoch" in metrics:
-            step = metrics['epoch']
+            step = metrics["epoch"]
         super().log_metrics(metrics, step)
+
 
 def main(args):
     pl.seed_everything(1234567890)
@@ -99,7 +100,10 @@ def main(args):
     criterion = torch.nn.BCEWithLogitsLoss(pos_weight=dm.class_weights)
 
     light_model = MultiLabelModel(
-        num_classes=dm.num_classes, criterion=criterion, lr_steps=[30,60,80], **vars(args)
+        num_classes=dm.num_classes,
+        criterion=criterion,
+        lr_steps=[30, 60, 80],
+        **vars(args),
     )
 
     # train
@@ -118,7 +122,6 @@ def main(args):
         name=args.model,
         version=prefix + "version_" + str(args.log_version),
     )
-    
 
     logger_path = os.path.join(
         args.log_save_dir, args.model, prefix + "version_" + str(args.log_version)
@@ -133,7 +136,6 @@ def main(args):
         monitor="val_loss",
         mode="min",
     )
-
 
     lr_monitor = LearningRateMonitor(logging_interval="step")
 
@@ -157,25 +159,58 @@ def main(args):
 def run_cli():
     # add PROGRAM level args
     parser = ArgumentParser()
-    parser.add_argument('--conda_env', type=str, default='Pytorch-Lightning')
-    parser.add_argument('--notification_email', type=str, default='')
-    parser.add_argument('--ann_root', type=str, default='./annotations')
-    parser.add_argument('--data_root', type=str, default='./Data')
-    parser.add_argument('--batch_size', type=int, default=64, help="Size of the batch per GPU")
-    parser.add_argument('--workers', type=int, default=4)
-    parser.add_argument('--log_save_dir', type=str, default="./logs")
-    parser.add_argument('--log_version', type=int, default=1)
-    parser.add_argument('--training_mode', type=str, default="e2e", choices=["e2e", "binary", "binaryrelevance", "defect"])
-    parser.add_argument('--br_defect', type=str, default=None, choices=[None, "RB","OB","PF","DE","FS","IS","RO","IN","AF","BE","FO","GR","PH","PB","OS","OP","OK"])
+    parser.add_argument("--conda_env", type=str, default="Pytorch-Lightning")
+    parser.add_argument("--notification_email", type=str, default="")
+    parser.add_argument("--ann_root", type=str, default="./annotations")
+    parser.add_argument("--data_root", type=str, default="./Data")
+    parser.add_argument(
+        "--batch_size", type=int, default=64, help="Size of the batch per GPU"
+    )
+    parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--log_save_dir", type=str, default="./logs")
+    parser.add_argument("--log_version", type=int, default=1)
+    parser.add_argument(
+        "--training_mode",
+        type=str,
+        default="e2e",
+        choices=["e2e", "binary", "binaryrelevance", "defect"],
+    )
+    parser.add_argument(
+        "--br_defect",
+        type=str,
+        default=None,
+        choices=[
+            None,
+            "RB",
+            "OB",
+            "PF",
+            "DE",
+            "FS",
+            "IS",
+            "RO",
+            "IN",
+            "AF",
+            "BE",
+            "FO",
+            "GR",
+            "PH",
+            "PB",
+            "OS",
+            "OP",
+            "OK",
+        ],
+    )
     # Trainer args
-    parser.add_argument('--precision', type=int, default=32, choices=[16, 32])
-    parser.add_argument('--max_epochs', type=int, default=100)
-    parser.add_argument('--gpus', type=int, default=1)
+    parser.add_argument("--precision", type=int, default=32, choices=[16, 32])
+    parser.add_argument("--max_epochs", type=int, default=100)
+    parser.add_argument("--gpus", type=int, default=1)
     # Model args
-    parser.add_argument('--model', type=str, default="resnet18", choices=MultiLabelModel.MODEL_NAMES)
-    parser.add_argument('--learning_rate', type=float, default=1e-2)
-    parser.add_argument('--momentum', type=float, default=0.9)
-    parser.add_argument('--weight_decay', type=float, default=0.0001)
+    parser.add_argument(
+        "--model", type=str, default="resnet18", choices=MultiLabelModel.MODEL_NAMES
+    )
+    parser.add_argument("--learning_rate", type=float, default=1e-2)
+    parser.add_argument("--momentum", type=float, default=0.9)
+    parser.add_argument("--weight_decay", type=float, default=0.0001)
 
     args = parser.parse_args()
 
