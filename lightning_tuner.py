@@ -174,6 +174,8 @@ def main(config, args):
         with open(os.path.join(logger_path, "error.txt"), "w") as f:
             f.write(str(e))
 
+def short_dirname(trial):
+    return "trial_" + str(trial.trial_id)
 
 def run_cli():
     # add PROGRAM level args
@@ -218,6 +220,7 @@ def run_cli():
         print_intermediate_tables=False,
     )
 
+
     analysis = tune.run(
         tune.with_parameters(main, args=args),
         resources_per_trial={"cpu": 4, "gpu": args.gpus},
@@ -228,6 +231,7 @@ def run_cli():
         storage_path="%s\%s" % (args.log_save_dir, args.model),
         progress_reporter=reporter,
         verbose=0,
+        trial_dirname_creator=short_dirname
     )
 
     print(
