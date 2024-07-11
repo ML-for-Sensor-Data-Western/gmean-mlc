@@ -159,13 +159,8 @@ def main(args):
 def run_cli():
     # add PROGRAM level args
     parser = ArgumentParser()
-    parser.add_argument("--conda_env", type=str, default="Pytorch-Lightning")
-    parser.add_argument("--notification_email", type=str, default="")
     parser.add_argument("--ann_root", type=str, default="./annotations")
     parser.add_argument("--data_root", type=str, default="./Data")
-    parser.add_argument(
-        "--batch_size", type=int, default=64, help="Size of the batch per GPU"
-    )
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--log_save_dir", type=str, default="./logs")
     parser.add_argument("--log_version", type=int, default=1)
@@ -204,6 +199,10 @@ def run_cli():
     parser.add_argument("--precision", type=int, default=32, choices=[16, 32])
     parser.add_argument("--max_epochs", type=int, default=100)
     parser.add_argument("--gpus", type=int, default=1)
+    # Data args
+    parser.add_argument(
+        "--batch_size", type=int, default=64, help="Size of the batch per GPU"
+    )
     # Model args
     parser.add_argument(
         "--model", type=str, default="resnet18", choices=MultiLabelModel.MODEL_NAMES
