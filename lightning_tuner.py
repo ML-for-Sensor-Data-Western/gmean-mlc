@@ -117,7 +117,7 @@ def main(config, args):
         momentum=config["momentum"],
         weight_decay=config["weight_decay"],
         batch_size=config["batch_size"],
-        lr_steps=[15,30,40]
+        lr_steps=[15, 30, 40],
     )
 
     # train
@@ -174,27 +174,60 @@ def main(config, args):
         with open(os.path.join(logger_path, "error.txt"), "w") as f:
             f.write(str(e))
 
+
 def short_dirname(trial):
     return "trial_" + str(trial.trial_id)
+
 
 def run_cli():
     # add PROGRAM level args
     parser = ArgumentParser()
-    parser.add_argument('--conda_env', type=str, default='Pytorch-Lightning')
-    parser.add_argument('--notification_email', type=str, default='')
-    parser.add_argument('--ann_root', type=str, default='./annotations')
-    parser.add_argument('--data_root', type=str, default='./Data')
-    parser.add_argument('--workers', type=int, default=4)
-    parser.add_argument('--log_save_dir', type=str, default="./logs")
-    parser.add_argument('--log_version', type=int, default=1)
-    parser.add_argument('--training_mode', type=str, default="e2e", choices=["e2e", "binary", "binaryrelevance", "defect"])
-    parser.add_argument('--br_defect', type=str, default=None, choices=[None, "RB","OB","PF","DE","FS","IS","RO","IN","AF","BE","FO","GR","PH","PB","OS","OP","OK"])
+    parser.add_argument("--conda_env", type=str, default="Pytorch-Lightning")
+    parser.add_argument("--notification_email", type=str, default="")
+    parser.add_argument("--ann_root", type=str, default="./annotations")
+    parser.add_argument("--data_root", type=str, default="./Data")
+    parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--log_save_dir", type=str, default="./logs")
+    parser.add_argument("--log_version", type=int, default=1)
+    parser.add_argument(
+        "--training_mode",
+        type=str,
+        default="e2e",
+        choices=["e2e", "binary", "binaryrelevance", "defect"],
+    )
+    parser.add_argument(
+        "--br_defect",
+        type=str,
+        default=None,
+        choices=[
+            None,
+            "RB",
+            "OB",
+            "PF",
+            "DE",
+            "FS",
+            "IS",
+            "RO",
+            "IN",
+            "AF",
+            "BE",
+            "FO",
+            "GR",
+            "PH",
+            "PB",
+            "OS",
+            "OP",
+            "OK",
+        ],
+    )
     # Trainer args
-    parser.add_argument('--precision', type=int, default=32, choices=[16, 32])
-    parser.add_argument('--max_epochs', type=int, default=100)
-    parser.add_argument('--gpus', type=int, default=1)
+    parser.add_argument("--precision", type=int, default=32, choices=[16, 32])
+    parser.add_argument("--max_epochs", type=int, default=100)
+    parser.add_argument("--gpus", type=int, default=1)
     # Model args
-    parser.add_argument('--model', type=str, default="resnet18", choices=MultiLabelModel.MODEL_NAMES)
+    parser.add_argument(
+        "--model", type=str, default="resnet18", choices=MultiLabelModel.MODEL_NAMES
+    )
 
     args = parser.parse_args()
 
@@ -220,7 +253,6 @@ def run_cli():
         print_intermediate_tables=False,
     )
 
-
     analysis = tune.run(
         tune.with_parameters(main, args=args),
         resources_per_trial={"cpu": 4, "gpu": args.gpus},
@@ -231,7 +263,7 @@ def run_cli():
         storage_path="%s\%s" % (args.log_save_dir, args.model),
         progress_reporter=reporter,
         verbose=0,
-        trial_dirname_creator=short_dirname
+        trial_dirname_creator=short_dirname,
     )
 
     print(
