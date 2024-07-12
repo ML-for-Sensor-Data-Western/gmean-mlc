@@ -116,6 +116,7 @@ def main(config, args):
         learning_rate=config["learning_rate"],
         momentum=config["momentum"],
         weight_decay=config["weight_decay"],
+        batch_size=config["batch_size"],
         lr_steps=[15, 30, 40],
     )
 
