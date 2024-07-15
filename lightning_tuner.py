@@ -241,8 +241,14 @@ def run_cli():
     }
 
     ashascheduler = ASHAScheduler(
+        time_attr="training_iteration", # default
         metric="val_loss",
         mode="min",
+        max_t=100, # default
+        grace_period=18,
+        reduction_factor=4, # default
+        brackets=1, # default
+        stop_last_trials=True, # default
     )
 
     reporter = CLIReporter(
