@@ -9,6 +9,7 @@ from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.integration.pytorch_lightning import TuneReportCheckpointCallback
 from ray.tune.schedulers import ASHAScheduler
+from ray.tune.search.optuna import OptunaSearch
 from torchvision import transforms
 
 from lightning_datamodules import (
@@ -239,8 +240,10 @@ def run_cli():
         "momentum": tune.uniform(0.75, 0.9),
         "weight_decay": tune.choice([0.00001, 0.00005, 0.0001, 0.0005, 0.001]),
     }
+    
+    search_algo = OptunaSearch(metric="val_loss", mode="min")
 
-    ashascheduler = ASHAScheduler(
+    search_scheduler = ASHAScheduler(
         time_attr="training_iteration", # default
         metric="val_loss",
         mode="min",
@@ -261,7 +264,8 @@ def run_cli():
         tune.with_parameters(main, args=args),
         resources_per_trial={"cpu": 4, "gpu": args.gpus},
         config=config,
-        scheduler=ashascheduler,
+        search_alg=search_algo,
+        scheduler=search_scheduler,
         num_samples=10,
         name="%s-version_%s" % (args.training_mode, args.log_version),
         storage_path="%s\%s" % (args.log_save_dir, args.model),
