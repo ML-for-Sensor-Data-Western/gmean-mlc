@@ -141,8 +141,7 @@ def run_inference(args):
     elif training_mode == "binaryrelevance":
         labelNames = [br_defect]
 
-    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = model.to(device)
 
