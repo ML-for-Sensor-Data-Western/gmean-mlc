@@ -2,6 +2,8 @@ import pytorch_lightning as pl
 import torch
 from torchvision import models as torch_models
 
+from torchvision.models.vision_transformer import ViT_B_16_Weights
+
 import ml_models
 import sewer_models
 
@@ -48,7 +50,7 @@ class MultiLabelModel(pl.LightningModule):
         self.num_classes = num_classes
 
         if model in MultiLabelModel.TORCHVISION_MODEL_NAMES:
-            self.model = torch_models.__dict__[model](num_classes=self.num_classes)
+            self.model = torch_models.__dict__[model](num_classes=self.num_classes, weights=ViT_B_16_Weights.IMAGENET1K_V1.value)
         elif model in MultiLabelModel.SEWER_MODEL_NAMES:
             self.model = sewer_models.__dict__[model](num_classes=self.num_classes)
         elif model in MultiLabelModel.MULTILABEL_MODEL_NAMES:
