@@ -116,7 +116,7 @@ def main(config, args):
         learning_rate=config["learning_rate"],
         momentum=config["momentum"],
         weight_decay=config["weight_decay"],
-        lr_steps=[15, 30, 40],
+        lr_steps=args.lr_steps,
     )
 
     # train
@@ -220,7 +220,8 @@ def run_cli():
     )
     # Trainer args
     parser.add_argument("--precision", type=int, default=32, choices=[16, 32])
-    parser.add_argument("--max_epochs", type=int, default=100)
+    parser.add_argument("--max_epochs", type=int, default=50)
+    parser.add_argument("--lr_steps", nargs="+", type=int, default=[15, 30, 40])
     parser.add_argument("--gpus", nargs="+", type=int, default=[0], help="GPU IDs to use")
     # Model args
     parser.add_argument(

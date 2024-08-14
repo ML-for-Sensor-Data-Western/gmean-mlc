@@ -102,7 +102,6 @@ def main(args):
     light_model = MultiLabelModel(
         num_classes=dm.num_classes,
         criterion=criterion,
-        lr_steps=[30, 60, 80],
         **vars(args),
     )
 
@@ -199,6 +198,7 @@ def run_cli():
     # Trainer args
     parser.add_argument("--precision", type=int, default=32, choices=[16, 32])
     parser.add_argument("--max_epochs", type=int, default=100)
+    parser.add_argument("--lr_steps", nargs="+", type=int, default=[30, 60, 80])
     parser.add_argument("--gpus", nargs="+", type=int, default=[0])
     # Data args
     parser.add_argument(
