@@ -140,7 +140,8 @@ def main(args):
     lr_monitor = LearningRateMonitor(logging_interval="step")
 
     trainer = pl.Trainer(
-        num_nodes=args.gpus,
+        devices=args.gpus,
+        num_nodes=1,
         precision=args.precision,
         max_epochs=args.max_epochs,
         benchmark=True,
@@ -198,7 +199,7 @@ def run_cli():
     # Trainer args
     parser.add_argument("--precision", type=int, default=32, choices=[16, 32])
     parser.add_argument("--max_epochs", type=int, default=100)
-    parser.add_argument("--gpus", type=int, default=1)
+    parser.add_argument("--gpus", nargs="+", type=int, default=[0])
     # Data args
     parser.add_argument(
         "--batch_size", type=int, default=64, help="Size of the batch per GPU"
@@ -214,8 +215,8 @@ def run_cli():
     args = parser.parse_args()
 
     # Adjust learning rate to amount of GPUs
-    args.workers = max(0, min(8, 4 * args.gpus))
-    args.learning_rate = args.learning_rate * (args.gpus * args.batch_size) / 256
+    args.workers = max(0, min(8, 4 * len(args.gpus)))
+    args.learning_rate = args.learning_rate * (len(args.gpus) * args.batch_size) / 256
 
     main(args)
 
