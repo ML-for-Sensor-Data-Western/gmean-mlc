@@ -231,7 +231,7 @@ def run_cli():
     args = parser.parse_args()
 
     # Adjust learning rate to amount of GPUs
-    args.workers = max(0, min(8, 4 * len(args.gpus)))
+    # args.workers = max(0, min(8, 4 * len(args.gpus)))
     # args.learning_rate = args.learning_rate * (len(args.gpus) * args.batch_size) / 256
 
     config = {
