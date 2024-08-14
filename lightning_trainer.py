@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 
 import pytorch_lightning as pl
 import torch
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 from torchvision import transforms
 
@@ -139,13 +139,15 @@ def main(args):
 
     lr_monitor = LearningRateMonitor(logging_interval="step")
 
+    early_stopper = EarlyStopping(monitor="val_loss", mode="min", patience=10)
+
     trainer = pl.Trainer(
         num_nodes=args.gpus,
         precision=args.precision,
         max_epochs=args.max_epochs,
         benchmark=True,
         logger=logger,
-        callbacks=[checkpoint_callback, lr_monitor],
+        callbacks=[checkpoint_callback, lr_monitor, early_stopper],
     )
 
     try:
