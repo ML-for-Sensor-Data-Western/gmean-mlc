@@ -28,6 +28,7 @@ def calcualteResults(args):
     for subdir, dirs, files in os.walk(scorePath):
         print(subdir)
         for scoreFile in files:
+            print("Calculating results for: ", scoreFile)
             if split.lower() not in scoreFile:
                 continue
             if "e2e" not in scoreFile and "twostage" not in scoreFile and "defect" not in scoreFile:
@@ -55,7 +56,8 @@ def calcualteResults(args):
 
 
             with open(os.path.join(outputPath,'{}.json'.format(outputName)), 'w') as fp:
-                json.dump({"Labels": Labels, "LabelWeights": LabelWeights, "New": new, "Main": main, "Auxillary": auxillary}, fp)
+                # json.dump({"Labels": Labels, "LabelWeights": LabelWeights, "New": new, "Main": main, "Auxillary": auxillary}, fp)
+                json.dump({"Labels": Labels, "LabelWeights": LabelWeights, "New": new, "Main": main, "Auxillary": auxillary}, fp, indent=4)
 
             newString = "{:.2f} & {:.2f} ".format(new["F2"]*100,  auxillary["F1_class"][-1]*100)
 
