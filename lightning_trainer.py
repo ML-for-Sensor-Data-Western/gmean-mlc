@@ -147,7 +147,7 @@ def main(args):
         max_epochs=args.max_epochs,
         benchmark=True,
         logger=logger,
-        callbacks=[checkpoint_callback, lr_monitor, early_stopper],
+        callbacks=[checkpoint_callback, lr_monitor],#, early_stopper],
     )
 
     try:
