@@ -217,6 +217,8 @@ def run_cli():
     parser.add_argument("--learning_rate", type=float, default=1e-2)
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--weight_decay", type=float, default=0.0001)
+    parser.add_argument("--dropout", type=float, default=0.2)
+    parser.add_argument("--attention_dropout", type=float, default=0.1)
 
     args = parser.parse_args()
 
