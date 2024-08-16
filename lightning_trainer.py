@@ -151,7 +151,10 @@ def main(args):
     )
 
     try:
-        trainer.fit(light_model, dm)
+        if args.checkpoint is not None:
+            trainer.fit(light_model, dm, ckpt_path=args.checkpoint)
+        else:
+            trainer.fit(light_model, dm)
     except Exception as e:
         print(e)
         with open(os.path.join(logger_path, "error.txt"), "w") as f:
@@ -164,6 +167,7 @@ def run_cli():
     parser.add_argument("--ann_root", type=str, default="./annotations")
     parser.add_argument("--data_root", type=str, default="./Data")
     parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--checkpoint", type=str, default=None, help="If resuming training, specify the checkpoint path")
     parser.add_argument("--log_save_dir", type=str, default="./logs")
     parser.add_argument("--log_version", type=int, default=1)
     parser.add_argument(
