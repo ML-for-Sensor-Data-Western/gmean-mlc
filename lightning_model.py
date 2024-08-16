@@ -42,6 +42,8 @@ class MultiLabelModel(pl.LightningModule):
         weight_decay=0.0001,
         lr_steps: list | None = None,
         criterion=torch.nn.BCEWithLogitsLoss,
+        dropout=0.2,
+        attention_dropout=0.1,
         **kwargs,
     ):
         super(MultiLabelModel, self).__init__()
@@ -51,7 +53,7 @@ class MultiLabelModel(pl.LightningModule):
 
         if model in MultiLabelModel.TORCHVISION_MODEL_NAMES:
             # self.model = torch_models.__dict__[model](num_classes=self.num_classes, weights=ViT_B_16_Weights.IMAGENET1K_V1.value)
-            self.model = torch_models.__dict__[model](num_classes=self.num_classes)
+            self.model = torch_models.__dict__[model](num_classes=self.num_classes, dropout=dropout, attention_dropout=attention_dropout)
         elif model in MultiLabelModel.SEWER_MODEL_NAMES:
             self.model = sewer_models.__dict__[model](num_classes=self.num_classes)
         elif model in MultiLabelModel.MULTILABEL_MODEL_NAMES:
