@@ -117,6 +117,8 @@ def main(config, args):
         momentum=config["momentum"],
         weight_decay=config["weight_decay"],
         lr_steps=args.lr_steps,
+        dropout=config["dropout"],
+        attention_dropout=config["attention_dropout"],
     )
 
     # train
@@ -239,6 +241,8 @@ def run_cli():
         "learning_rate": tune.choice([0.005, 0.01, 0.025, 0.05, 0.075, 0.1]),
         "momentum": tune.uniform(0.75, 0.9),
         "weight_decay": tune.choice([0.00001, 0.00005, 0.0001, 0.0005, 0.001]),
+        "dropout": tune.uniform(0.1, 0.5),
+        "attention_dropout": tune.uniform(0.05, 0.3),
     }
 
     ashascheduler = ASHAScheduler(
