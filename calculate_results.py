@@ -26,9 +26,8 @@ def calcualteResults(args):
     targets = targetsDf[Labels].values
 
     for subdir, dirs, files in os.walk(scorePath):
-        print(subdir)
+        print("Iterating in dir: ", subdir)
         for scoreFile in files:
-            print("Calculating results for: ", scoreFile)
             if split.lower() not in scoreFile:
                 continue
             if "e2e" not in scoreFile and "twostage" not in scoreFile and "defect" not in scoreFile:
@@ -37,7 +36,7 @@ def calcualteResults(args):
                 continue
             if os.path.splitext(scoreFile)[-1] != ".csv":
                 continue
-
+            print("Calculating results for: ", scoreFile)
 
             scoresDf = pd.read_csv(os.path.join(subdir, scoreFile), sep=",")
             scoresDf = scoresDf.sort_values(by=["Filename"]).reset_index(drop=True)
@@ -56,7 +55,6 @@ def calcualteResults(args):
 
 
             with open(os.path.join(outputPath,'{}.json'.format(outputName)), 'w') as fp:
-                # json.dump({"Labels": Labels, "LabelWeights": LabelWeights, "New": new, "Main": main, "Auxillary": auxillary}, fp)
                 json.dump({"Labels": Labels, "LabelWeights": LabelWeights, "New": new, "Main": main, "Auxillary": auxillary}, fp, indent=4)
 
             newString = "{:.2f} & {:.2f} ".format(new["F2"]*100,  auxillary["F1_class"][-1]*100)
