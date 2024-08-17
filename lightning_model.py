@@ -41,6 +41,7 @@ class MultiLabelModel(pl.LightningModule):
         learning_rate=1e-2,
         momentum=0.9,
         weight_decay=0.0001,
+        batch_size=64,
         lr_steps: list | None = None,
         criterion=torch.nn.BCEWithLogitsLoss,
         dropout=0.2,
@@ -78,6 +79,7 @@ class MultiLabelModel(pl.LightningModule):
         self.lr_steps = lr_steps
         if lr_steps is None:
             self.lr_steps = LR_STEPS
+        self.batch_size = batch_size
 
     def forward(self, x):
         logits = self.model(x)
@@ -118,13 +120,15 @@ class MultiLabelModel(pl.LightningModule):
             on_step=False,
             on_epoch=True,
             prog_bar=True,
+            batch_size=self.batch_size,
         )
         self.log(
             "train_acc", 
             accuracy, 
             on_step=False, 
             on_epoch=True, 
-            prog_bar=True)
+            prog_bar=True,
+            batch_size=self.batch_size,)
         
         return loss
 
@@ -139,6 +143,7 @@ class MultiLabelModel(pl.LightningModule):
             on_step=False,
             on_epoch=True,
             prog_bar=True,
+            batch_size=self.batch_size,
         )
         self.log(
             "val_acc",
@@ -146,6 +151,7 @@ class MultiLabelModel(pl.LightningModule):
             on_step=False,
             on_epoch=True,
             prog_bar=True,
+            batch_size=self.batch_size,
         )
         return loss
 
