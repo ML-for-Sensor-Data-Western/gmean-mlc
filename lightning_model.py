@@ -2,6 +2,9 @@ import pytorch_lightning as pl
 import torch
 from torchvision import models as torch_models
 
+from torchvision.models.vision_transformer import ViT_B_16_Weights
+from torchmetrics.classification import MultilabelAccuracy
+
 import ml_models
 import sewer_models
 
@@ -41,6 +44,8 @@ class MultiLabelModel(pl.LightningModule):
         batch_size=64,
         lr_steps: list | None = None,
         criterion=torch.nn.BCEWithLogitsLoss,
+        dropout=0.2,
+        attention_dropout=0.1,
         **kwargs,
     ):
         super(MultiLabelModel, self).__init__()
@@ -49,7 +54,8 @@ class MultiLabelModel(pl.LightningModule):
         self.num_classes = num_classes
 
         if model in MultiLabelModel.TORCHVISION_MODEL_NAMES:
-            self.model = torch_models.__dict__[model](num_classes=self.num_classes)
+            # self.model = torch_models.__dict__[model](num_classes=self.num_classes, weights=ViT_B_16_Weights.IMAGENET1K_V1.value)
+            self.model = torch_models.__dict__[model](num_classes=self.num_classes, dropout=dropout, attention_dropout=attention_dropout)
         elif model in MultiLabelModel.SEWER_MODEL_NAMES:
             self.model = sewer_models.__dict__[model](num_classes=self.num_classes)
         elif model in MultiLabelModel.MULTILABEL_MODEL_NAMES:
@@ -61,11 +67,8 @@ class MultiLabelModel(pl.LightningModule):
 
         self.aux_logits = hasattr(self.model, "aux_logits")
 
-        if self.aux_logits:
-            self.train_function = self.aux_loss
-        else:
-            self.train_function = self.normal_loss
         self.criterion = criterion
+        self.accuracy = MultilabelAccuracy(num_labels=self.num_classes)
 
         if callable(getattr(self.criterion, "set_device", None)):
             self.criterion.set_device(self.device)
@@ -82,23 +85,35 @@ class MultiLabelModel(pl.LightningModule):
         logits = self.model(x)
         return logits
 
-    def aux_loss(self, x, y):
+    def aux_loss(self, y_hat, y_aux_hat, y):
         y = y.float()
-        y_hat, y_aux_hat = self(x)
         loss = self.criterion(y_hat, y) + 0.4 * self.criterion(y_aux_hat, y)
 
         return loss
 
-    def normal_loss(self, x, y):
+    def normal_loss(self, y_hat, y):
         y = y.float()
-        y_hat = self(x)
         loss = self.criterion(y_hat, y)
 
         return loss
-
+    
+    def multiclass_accuracy(self, y_hat, y):
+        y = y.float()
+        return self.accuracy(y_hat, y)
+    
     def training_step(self, batch, batch_idx):
         x, y, _ = batch
-        loss = self.train_function(x, y)
+        logits = self(x)
+        
+        if self.aux_logits:
+            y_hat, y_aux_hat = logits
+            loss = self.aux_loss(y_hat, y_aux_hat, y)
+        else:
+            y_hat = logits
+            loss = self.normal_loss(y_hat, y)
+        
+        accuracy = self.multiclass_accuracy(y_hat, y)
+        
         self.log(
             "train_loss",
             loss,
@@ -107,14 +122,32 @@ class MultiLabelModel(pl.LightningModule):
             prog_bar=True,
             batch_size=self.batch_size,
         )
+        self.log(
+            "train_acc", 
+            accuracy, 
+            on_step=False, 
+            on_epoch=True, 
+            prog_bar=True,
+            batch_size=self.batch_size,)
+        
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y, _ = batch
-        loss = self.normal_loss(x, y)
+        y_hat = self(x)
+        loss = self.normal_loss(y_hat, y)
+        accuracy = self.multiclass_accuracy(y_hat, y)
         self.log(
             "val_loss",
             loss,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            batch_size=self.batch_size,
+        )
+        self.log(
+            "val_acc",
+            accuracy,
             on_step=False,
             on_epoch=True,
             prog_bar=True,
@@ -124,8 +157,11 @@ class MultiLabelModel(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         x, y, _ = batch
+        y_hat = self(x)
         loss = self.normal_loss(x, y)
+        accuracy = self.multiclass_accuracy(y_hat, y)
         self.log("test_loss", loss)
+        self.log("test_acc", accuracy)
         return loss
 
     def configure_optimizers(self):
