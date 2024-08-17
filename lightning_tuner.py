@@ -144,16 +144,16 @@ def main(config, args):
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=logger_path,
-        filename="{epoch:02d}-{val_loss:.2f}",
+        filename="{epoch:02d}-{val_acc:.2f}",
         save_top_k=3,
         save_last=True,
         verbose=False,
-        monitor="val_loss",
-        mode="min",
+        monitor="val_acc",
+        mode="max",
     )
 
     tune_callback = MyTuneReportCheckpointCallback(
-        metrics={"val_loss": "val_loss"}, on="validation_end"
+        metrics={"val_acc": "val_acc"}, on="validation_end"
     )
 
     lr_monitor = LearningRateMonitor(logging_interval="step")
@@ -246,13 +246,13 @@ def run_cli():
     }
 
     ashascheduler = ASHAScheduler(
-        metric="val_loss",
-        mode="min",
+        metric="val_acc",
+        mode="max",
     )
 
     reporter = CLIReporter(
-        parameter_columns=["batch_size", "learning_rate", "momentum", "weight_decay"],
-        metric_columns=["val_loss", "training_iteration"],
+        parameter_columns=["batch_size", "learning_rate", "momentum", "weight_decay", "dropout", "attention_dropout"],
+        metric_columns=["val_acc", "training_iteration"],
         print_intermediate_tables=False,
     )
 
@@ -271,7 +271,7 @@ def run_cli():
 
     print(
         "The best param values are: ",
-        analysis.get_best_config(metric="val_loss", mode="min"),
+        analysis.get_best_config(metric="val_acc", mode="max"),
     )
 
 
