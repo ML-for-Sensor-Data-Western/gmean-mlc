@@ -117,6 +117,8 @@ def main(config, args):
         momentum=config["momentum"],
         weight_decay=config["weight_decay"],
         lr_steps=args.lr_steps,
+        dropout=config["dropout"],
+        attention_dropout=config["attention_dropout"],
     )
 
     # train
@@ -142,16 +144,16 @@ def main(config, args):
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=logger_path,
-        filename="{epoch:02d}-{val_loss:.2f}",
+        filename="{epoch:02d}-{val_acc:.2f}",
         save_top_k=3,
         save_last=True,
         verbose=False,
-        monitor="val_loss",
-        mode="min",
+        monitor="val_acc",
+        mode="max",
     )
 
     tune_callback = MyTuneReportCheckpointCallback(
-        metrics={"val_loss": "val_loss"}, on="validation_end"
+        metrics={"val_acc": "val_acc"}, on="validation_end"
     )
 
     lr_monitor = LearningRateMonitor(logging_interval="step")
@@ -235,20 +237,22 @@ def run_cli():
     # args.learning_rate = args.learning_rate * (len(args.gpus) * args.batch_size) / 256
 
     config = {
-        "batch_size": tune.choice([128, 256, 512]),
-        "learning_rate": tune.choice([0.005, 0.01, 0.025, 0.05, 0.075, 0.1]),
-        "momentum": tune.uniform(0.75, 0.9),
-        "weight_decay": tune.choice([0.00001, 0.00005, 0.0001, 0.0005, 0.001]),
+        "batch_size": tune.choice([64, 128, 256]),
+        "learning_rate": tune.choice([0.001, 0.005, 0.01, 0.02, 0.03, 0.05, 0.075, 0.1]),
+        "momentum": tune.choice([0.5, 0.6, 0.7, 0.8, 0.9]),
+        "weight_decay": tune.uniform(0.0001,0.1),
+        "dropout": tune.uniform(0.1, 0.5),
+        "attention_dropout": tune.uniform(0.05, 0.3),
     }
 
     ashascheduler = ASHAScheduler(
-        metric="val_loss",
-        mode="min",
+        metric="val_acc",
+        mode="max",
     )
 
     reporter = CLIReporter(
-        parameter_columns=["batch_size", "learning_rate", "momentum", "weight_decay"],
-        metric_columns=["val_loss", "training_iteration"],
+        parameter_columns=["batch_size", "learning_rate", "momentum", "weight_decay", "dropout", "attention_dropout"],
+        metric_columns=["val_acc", "training_iteration"],
         print_intermediate_tables=False,
     )
 
@@ -267,7 +271,7 @@ def run_cli():
 
     print(
         "The best param values are: ",
-        analysis.get_best_config(metric="val_loss", mode="min"),
+        analysis.get_best_config(metric="val_acc", mode="max"),
     )
 
 
