@@ -3,6 +3,7 @@ import torch
 from torchvision import models as torch_models
 
 from torchvision.models.vision_transformer import ViT_B_16_Weights
+from torchmetrics.classification import MultilabelAccuracy
 
 import ml_models
 import sewer_models
@@ -65,11 +66,8 @@ class MultiLabelModel(pl.LightningModule):
 
         self.aux_logits = hasattr(self.model, "aux_logits")
 
-        if self.aux_logits:
-            self.train_function = self.aux_loss
-        else:
-            self.train_function = self.normal_loss
         self.criterion = criterion
+        self.accuracy = MultilabelAccuracy(num_labels=self.num_classes)
 
         if callable(getattr(self.criterion, "set_device", None)):
             self.criterion.set_device(self.device)
@@ -85,23 +83,35 @@ class MultiLabelModel(pl.LightningModule):
         logits = self.model(x)
         return logits
 
-    def aux_loss(self, x, y):
+    def aux_loss(self, y_hat, y_aux_hat, y):
         y = y.float()
-        y_hat, y_aux_hat = self(x)
         loss = self.criterion(y_hat, y) + 0.4 * self.criterion(y_aux_hat, y)
 
         return loss
 
-    def normal_loss(self, x, y):
+    def normal_loss(self, y_hat, y):
         y = y.float()
-        y_hat = self(x)
         loss = self.criterion(y_hat, y)
 
         return loss
-
+    
+    def multiclass_accuracy(self, y_hat, y):
+        y = y.float()
+        return self.accuracy(y_hat, y)
+    
     def training_step(self, batch, batch_idx):
         x, y, _ = batch
-        loss = self.train_function(x, y)
+        logits = self(x)
+        
+        if self.aux_logits:
+            y_hat, y_aux_hat = logits
+            loss = self.aux_loss(y_hat, y_aux_hat, y)
+        else:
+            y_hat = logits
+            loss = self.normal_loss(y_hat, y)
+        
+        accuracy = self.multiclass_accuracy(y_hat, y)
+        
         self.log(
             "train_loss",
             loss,
@@ -109,14 +119,30 @@ class MultiLabelModel(pl.LightningModule):
             on_epoch=True,
             prog_bar=True,
         )
+        self.log(
+            "train_acc", 
+            accuracy, 
+            on_step=False, 
+            on_epoch=True, 
+            prog_bar=True)
+        
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y, _ = batch
-        loss = self.normal_loss(x, y)
+        y_hat = self(x)
+        loss = self.normal_loss(y_hat, y)
+        accuracy = self.multiclass_accuracy(y_hat, y)
         self.log(
             "val_loss",
             loss,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+        )
+        self.log(
+            "val_acc",
+            accuracy,
             on_step=False,
             on_epoch=True,
             prog_bar=True,
@@ -125,8 +151,11 @@ class MultiLabelModel(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         x, y, _ = batch
+        y_hat = self(x)
         loss = self.normal_loss(x, y)
+        accuracy = self.multiclass_accuracy(y_hat, y)
         self.log("test_loss", loss)
+        self.log("test_acc", accuracy)
         return loss
 
     def configure_optimizers(self):

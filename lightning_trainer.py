@@ -128,17 +128,17 @@ def main(args):
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=logger_path,
-        filename="{epoch:02d}-{val_loss:.2f}",
+        filename="{epoch:02d}-{val_acc:.2f}",
         save_top_k=3,
         save_last=True,
         verbose=False,
-        monitor="val_loss",
-        mode="min",
+        monitor="val_acc",
+        mode="max",
     )
 
     lr_monitor = LearningRateMonitor(logging_interval="step")
 
-    early_stopper = EarlyStopping(monitor="val_loss", mode="min", patience=10)
+    early_stopper = EarlyStopping(monitor="val_acc", mode="max", patience=10)
 
     trainer = pl.Trainer(
         devices=args.gpus,
