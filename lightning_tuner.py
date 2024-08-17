@@ -9,6 +9,7 @@ from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.integration.pytorch_lightning import TuneReportCheckpointCallback
 from ray.tune.schedulers import ASHAScheduler
+from ray.tune.search.optuna import OptunaSearch
 from torchvision import transforms
 
 from lightning_datamodules import (
@@ -116,6 +117,7 @@ def main(config, args):
         learning_rate=config["learning_rate"],
         momentum=config["momentum"],
         weight_decay=config["weight_decay"],
+        batch_size=config["batch_size"],
         lr_steps=args.lr_steps,
         dropout=config["dropout"],
         attention_dropout=config["attention_dropout"],
@@ -244,10 +246,18 @@ def run_cli():
         "dropout": tune.uniform(0.1, 0.5),
         "attention_dropout": tune.uniform(0.05, 0.3),
     }
+    
+    search_algo = OptunaSearch(metric="val_acc", mode="max")
 
-    ashascheduler = ASHAScheduler(
+    search_scheduler = ASHAScheduler(
+        time_attr="training_iteration", # default
         metric="val_acc",
         mode="max",
+        max_t=100, # default
+        grace_period=18,
+        reduction_factor=4, # default
+        brackets=1, # default
+        stop_last_trials=True, # default
     )
 
     reporter = CLIReporter(
@@ -260,7 +270,8 @@ def run_cli():
         tune.with_parameters(main, args=args),
         resources_per_trial={"cpu": 4, "gpu": args.gpus},
         config=config,
-        scheduler=ashascheduler,
+        search_alg=search_algo,
+        scheduler=search_scheduler,
         num_samples=10,
         name="%s-version_%s" % (args.training_mode, args.log_version),
         storage_path="%s\%s" % (args.log_save_dir, args.model),
