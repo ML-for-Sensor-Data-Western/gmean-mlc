@@ -6,6 +6,7 @@
 # Node artifact files
 node_modules/
 dist/
+logs/
 
 # Compiled Java class files
 *.class
@@ -48,3 +49,10 @@ Thumbs.db
 *.mov
 *.wmv
 
+*.txt
+*.csv
+*.yaml
+*.ckpt
+*.out
+*.json
+*.pkl

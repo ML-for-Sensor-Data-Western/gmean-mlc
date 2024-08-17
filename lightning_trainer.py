@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 
 import pytorch_lightning as pl
 import torch
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 from torchvision import transforms
 
@@ -102,7 +102,6 @@ def main(args):
     light_model = MultiLabelModel(
         num_classes=dm.num_classes,
         criterion=criterion,
-        lr_steps=[30, 60, 80],
         **vars(args),
     )
 
@@ -129,27 +128,33 @@ def main(args):
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=logger_path,
-        filename="{epoch:02d}-{val_loss:.2f}",
+        filename="{epoch:02d}-{val_acc:.2f}",
         save_top_k=3,
         save_last=True,
         verbose=False,
-        monitor="val_loss",
-        mode="min",
+        monitor="val_acc",
+        mode="max",
     )
 
     lr_monitor = LearningRateMonitor(logging_interval="step")
 
+    early_stopper = EarlyStopping(monitor="val_acc", mode="max", patience=10)
+
     trainer = pl.Trainer(
-        num_nodes=args.gpus,
+        devices=args.gpus,
+        num_nodes=1,
         precision=args.precision,
         max_epochs=args.max_epochs,
         benchmark=True,
         logger=logger,
-        callbacks=[checkpoint_callback, lr_monitor],
+        callbacks=[checkpoint_callback, lr_monitor],#, early_stopper],
     )
 
     try:
-        trainer.fit(light_model, dm)
+        if args.checkpoint is not None:
+            trainer.fit(light_model, dm, ckpt_path=args.checkpoint)
+        else:
+            trainer.fit(light_model, dm)
     except Exception as e:
         print(e)
         with open(os.path.join(logger_path, "error.txt"), "w") as f:
@@ -162,6 +167,7 @@ def run_cli():
     parser.add_argument("--ann_root", type=str, default="./annotations")
     parser.add_argument("--data_root", type=str, default="./Data")
     parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--checkpoint", type=str, default=None, help="If resuming training, specify the checkpoint path")
     parser.add_argument("--log_save_dir", type=str, default="./logs")
     parser.add_argument("--log_version", type=int, default=1)
     parser.add_argument(
@@ -198,7 +204,8 @@ def run_cli():
     # Trainer args
     parser.add_argument("--precision", type=int, default=32, choices=[16, 32])
     parser.add_argument("--max_epochs", type=int, default=100)
-    parser.add_argument("--gpus", type=int, default=1)
+    parser.add_argument("--lr_steps", nargs="+", type=int, default=[30, 60, 80])
+    parser.add_argument("--gpus", nargs="+", type=int, default=[0])
     # Data args
     parser.add_argument(
         "--batch_size", type=int, default=64, help="Size of the batch per GPU"
@@ -210,12 +217,14 @@ def run_cli():
     parser.add_argument("--learning_rate", type=float, default=1e-2)
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--weight_decay", type=float, default=0.0001)
+    parser.add_argument("--dropout", type=float, default=0.2)
+    parser.add_argument("--attention_dropout", type=float, default=0.1)
 
     args = parser.parse_args()
 
     # Adjust learning rate to amount of GPUs
-    args.workers = max(0, min(8, 4 * args.gpus))
-    args.learning_rate = args.learning_rate * (args.gpus * args.batch_size) / 256
+    # args.workers = max(0, min(8, 4 * len(args.gpus)))
+    # args.learning_rate = args.learning_rate * (len(args.gpus) * args.batch_size) / 256
 
     main(args)
 

@@ -141,8 +141,7 @@ def run_inference(args):
     elif training_mode == "binaryrelevance":
         labelNames = [br_defect]
 
-    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = model.to(device)
 
@@ -156,7 +155,7 @@ def run_inference(args):
         sigmoid_dict[header] = sigmoid_predictions[:,idx]
 
     sigmoid_df = pd.DataFrame(sigmoid_dict)
-    sigmoid_df.to_csv(os.path.join(outputPath, "{}_{}_sigmoid.csv".format(model_version, split.lower())), sep=",", index=False)
+    sigmoid_df.to_csv(os.path.join(outputPath, "{}_{}_{}_sigmoid.csv".format(model_version, training_mode, split.lower())), sep=",", index=False)
 
 
 if __name__ == "__main__":
