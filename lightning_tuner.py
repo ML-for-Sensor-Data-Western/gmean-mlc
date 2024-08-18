@@ -269,7 +269,7 @@ def run_cli():
 
     analysis = tune.run(
         tune.with_parameters(main, args=args),
-        resources_per_trial={"cpu": 4, "gpu": args.gpus},
+        resources_per_trial={"cpu": 4, "gpu": 1},
         config=config,
         search_alg=search_algo,
         scheduler=search_scheduler,
