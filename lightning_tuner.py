@@ -161,7 +161,6 @@ def main(config, args):
     lr_monitor = LearningRateMonitor(logging_interval="step")
 
     trainer = pl.Trainer(
-        devices=args.gpus,
         num_nodes=1,
         precision=args.precision,
         max_epochs=args.max_epochs,
@@ -240,7 +239,7 @@ def run_cli():
     # args.learning_rate = args.learning_rate * (len(args.gpus) * args.batch_size) / 256
 
     config = {
-        "batch_size": tune.choice([64, 128, 256]),
+        "batch_size": tune.choice([128, 256]),
         "learning_rate": tune.choice([0.001, 0.005, 0.01, 0.02, 0.03, 0.05, 0.075, 0.1]),
         "momentum": tune.choice([0.5, 0.6, 0.7, 0.8, 0.9]),
         "weight_decay": tune.uniform(0.0001,0.1),
