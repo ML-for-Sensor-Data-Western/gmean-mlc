@@ -189,6 +189,7 @@ def run_cli():
     parser.add_argument("--ann_root", type=str, default="./annotations")
     parser.add_argument("--data_root", type=str, default="./Data")
     parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--num_trials", type=int, default=10)
     parser.add_argument("--log_save_dir", type=str, default="./logs")
     parser.add_argument("--log_version", type=int, default=1)
     parser.add_argument(
@@ -272,7 +273,7 @@ def run_cli():
         config=config,
         search_alg=search_algo,
         scheduler=search_scheduler,
-        num_samples=10,
+        num_samples=args.num_trials,
         name="%s-version_%s" % (args.training_mode, args.log_version),
         storage_path="%s\%s" % (args.log_save_dir, args.model),
         progress_reporter=reporter,
