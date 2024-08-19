@@ -173,9 +173,7 @@ def main(config, args):
     try:
         trainer.fit(light_model, dm)
     except Exception as e:
-        print(e)
-        with open(os.path.join(logger_path, "error.txt"), "w") as f:
-            f.write(str(e))
+        print("Error during trainer.fit: ", e)
 
 
 def short_dirname(trial):
@@ -188,7 +186,10 @@ def run_cli():
     parser.add_argument("--ann_root", type=str, default="./annotations")
     parser.add_argument("--data_root", type=str, default="./Data")
     parser.add_argument("--workers", type=int, default=4)
-    parser.add_argument("--num_trials", type=int, default=10)
+    parser.add_argument("--num_trials", type=int, default=50)
+    parser.add_argument("--max_concurrent_trials", type=int, default=1)
+    parser.add_argument("--cpus_per_trial", type=int, default=4)
+    parser.add_argument("--gpus_per_trial", type=int, default=1)
     parser.add_argument("--log_save_dir", type=str, default="./logs")
     parser.add_argument("--log_version", type=int, default=1)
     parser.add_argument(
@@ -226,7 +227,6 @@ def run_cli():
     parser.add_argument("--precision", type=int, default=32, choices=[16, 32])
     parser.add_argument("--max_epochs", type=int, default=50)
     parser.add_argument("--lr_steps", nargs="+", type=int, default=[15, 30, 40])
-    parser.add_argument("--gpus", nargs="+", type=int, default=[0], help="GPU IDs to use")
     # Model args
     parser.add_argument(
         "--model", type=str, default="resnet18", choices=MultiLabelModel.MODEL_NAMES
@@ -235,11 +235,11 @@ def run_cli():
     args = parser.parse_args()
 
     # Adjust learning rate to amount of GPUs
-    # args.workers = max(0, min(8, 4 * len(args.gpus)))
-    # args.learning_rate = args.learning_rate * (len(args.gpus) * args.batch_size) / 256
+    # args.workers = max(0, min(8, 4 * len(args.gpus_per_trial)))
+    # args.learning_rate = args.learning_rate * (len(args.gpus_per_trial) * args.batch_size) / 256
 
     config = {
-        "batch_size": tune.choice([128, 256]),
+        "batch_size": tune.choice([64, 128, 256]),
         "learning_rate": tune.choice([0.001, 0.005, 0.01, 0.02, 0.03, 0.05, 0.075, 0.1]),
         "momentum": tune.choice([0.5, 0.6, 0.7, 0.8, 0.9]),
         "weight_decay": tune.uniform(0.0001,0.1),
@@ -268,11 +268,12 @@ def run_cli():
 
     analysis = tune.run(
         tune.with_parameters(main, args=args),
-        resources_per_trial={"cpu": 4, "gpu": 1},
+        resources_per_trial={"cpu": args.cpus_per_trial, "gpu": args.gpus_per_trial},
         config=config,
         search_alg=search_algo,
         scheduler=search_scheduler,
         num_samples=args.num_trials,
+        max_concurrent_trials=args.max_concurrent_trials,
         name="%s-version_%s" % (args.training_mode, args.log_version),
         storage_path="%s\%s" % (args.log_save_dir, args.model),
         progress_reporter=reporter,
