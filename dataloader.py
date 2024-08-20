@@ -62,7 +62,7 @@ class MultiLabelDataset(Dataset):
 
             class_weight = neg_count/pos_count if pos_count > 0 else 0
             class_weights.append(np.asarray([class_weight]))
-        return torch.as_tensor(class_weights).squeeze()
+        return torch.as_tensor(np.array(class_weights)).squeeze()
 
 
 class MultiLabelDatasetInference(Dataset):
