@@ -221,6 +221,7 @@ def run_cli():
     parser.add_argument("--attention_dropout", type=float, default=0.1)
 
     args = parser.parse_args()
+    print(args)
 
     # Adjust learning rate to amount of GPUs
     # args.workers = max(0, min(8, 4 * len(args.gpus)))
