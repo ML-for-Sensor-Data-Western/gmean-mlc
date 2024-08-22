@@ -29,9 +29,10 @@ for index, row in df_training.iterrows():
 df_training2 = pd.DataFrame(df_training2)
 '''
 
-train_subset = df_training.sample(n=400000)
-val_subset = df_val.iloc[:50000]
-test_subset = df_val.iloc[50000:100000]
+train_subset = df_training.sample(n=400000, random_state=1)
+df_val_shuffled = df_val.sample(frac=1, random_state=1)
+val_subset = df_val_shuffled.iloc[:50000]
+test_subset = df_val_shuffled.iloc[50000:100000]
 
 train_subset.to_csv("/mnt/datassd0/sewer-data/annotations_500k/SewerML_Train.csv", index=False)
 val_subset.to_csv("/mnt/datassd0/sewer-data/annotations_500k/SewerML_Val.csv", index=False)
