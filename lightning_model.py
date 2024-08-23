@@ -68,6 +68,7 @@ class MultiLabelModel(pl.LightningModule):
         self.aux_logits = hasattr(self.model, "aux_logits")
 
         self.criterion = criterion
+        self.criterion_no_weight = torch.nn.BCEWithLogitsLoss()
         self.accuracy = MultilabelAccuracy(num_labels=self.num_classes)
 
         if callable(getattr(self.criterion, "set_device", None)):
@@ -95,6 +96,11 @@ class MultiLabelModel(pl.LightningModule):
         y = y.float()
         loss = self.criterion(y_hat, y)
 
+        return loss
+    
+    def bce_loss_wo_weight(self, y_hat, y):
+        y = y.float()
+        loss = self.criterion_no_weight(y_hat, y)
         return loss
     
     def multiclass_accuracy(self, y_hat, y):
@@ -137,6 +143,7 @@ class MultiLabelModel(pl.LightningModule):
         y_hat = self(x)
         loss = self.normal_loss(y_hat, y)
         accuracy = self.multiclass_accuracy(y_hat, y)
+        bce_loss_wo_weight = self.bce_loss_wo_weight(y_hat, y)
         self.log(
             "val_loss",
             loss,
@@ -148,6 +155,14 @@ class MultiLabelModel(pl.LightningModule):
         self.log(
             "val_acc",
             accuracy,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            batch_size=self.batch_size,
+        )
+        self.log(
+            "val_bce_loss_wo_weight",
+            bce_loss_wo_weight,
             on_step=False,
             on_epoch=True,
             prog_bar=True,
