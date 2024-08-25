@@ -13,6 +13,7 @@ from lightning_datamodules import (
     MultiLabelDataModule,
 )
 from lightning_model import MultiLabelModel
+from typing import Optional
 
 
 class CustomLogger(TensorBoardLogger):
@@ -20,7 +21,22 @@ class CustomLogger(TensorBoardLogger):
         if "epoch" in metrics:
             step = metrics["epoch"]
         super().log_metrics(metrics, step)
-
+        
+class CustomLoss(torch.nn.Module):
+    def __init__(self, pos_weight: Optional[torch.Tensor] = None, binary_loss_weight: float = 1.):
+        super().__init__()
+        self.bce_with_weights = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        self.bce = torch.nn.BCEWithLogitsLoss()
+        self.binary_loss_weight = binary_loss_weight
+    
+    def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        normal_loss = self.bce_with_weights(input, target)
+        
+        binary_input = torch.mean(input, dim=1, keepdim=True)
+        binary_target = torch.sum(target,1,True)/torch.clip(torch.sum(target,1,True), 1e-5)
+        binary_loss = self.bce(binary_input, binary_target)
+        
+        return normal_loss + self.binary_loss_weight * binary_loss
 
 def main(args):
     pl.seed_everything(1234567890)
@@ -97,7 +113,8 @@ def main(args):
     dm.setup("fit")
 
     # Init our model
-    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=dm.class_weights)
+    # criterion = torch.nn.BCEWithLogitsLoss(pos_weight=dm.class_weights)
+    criterion = CustomLoss(pos_weight=dm.class_weights, binary_loss_weight=1.)
 
     light_model = MultiLabelModel(
         num_classes=dm.num_classes,
