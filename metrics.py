@@ -82,7 +82,7 @@ def exact_match_accuracy(scores, targets, threshold = 0.5):
 
     return EMAcc
 
-def class_weighted_f2(Ng, Np, Nc, weights, threshold=0.5):
+def class_weighted_f2(Ng, Np, Nc, weights):
     n_class = len(Ng)
     precision_k = Nc / Np
     recall_k = Nc / Ng
@@ -160,7 +160,7 @@ def evaluation(scores, targets, weights, threshold = 0.5):
     mF1 = micro_f1(Ng, Np, Nc)
 
     # Zero-One exact match accuracy
-    EMAcc = exact_match_accuracy(scores, targets)
+    EMAcc = exact_match_accuracy(scores, targets, threshold)
 
     # Mean Average Precision (mAP)
     mAP = mean_average_precision(ap)

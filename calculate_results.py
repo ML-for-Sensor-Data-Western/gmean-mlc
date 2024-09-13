@@ -43,7 +43,7 @@ def calcualteResults(args):
 
             scores = scoresDf[Labels].values
 
-            new, main, auxillary = evaluation(scores, targets, LabelWeights)
+            new, main, auxillary = evaluation(scores, targets, LabelWeights, threshold=0.5)
 
             outputName = "{}_{}".format(split, scoreFile)
             if split.lower() == "test":
