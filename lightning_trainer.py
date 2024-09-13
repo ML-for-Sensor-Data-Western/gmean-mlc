@@ -3,7 +3,11 @@ from argparse import ArgumentParser
 
 import pytorch_lightning as pl
 import torch
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
+from pytorch_lightning.callbacks import (
+    LearningRateMonitor,
+    ModelCheckpoint,
+    EarlyStopping,
+)
 from pytorch_lightning.loggers import TensorBoardLogger
 from torchvision import transforms
 
@@ -21,14 +25,19 @@ class CustomLogger(TensorBoardLogger):
         if "epoch" in metrics:
             step = metrics["epoch"]
         super().log_metrics(metrics, step)
-        
+
+
 class CustomLoss(torch.nn.Module):
-    def __init__(self, pos_weight: Optional[torch.Tensor] = None, binary_loss_weight: float = 1.):
+    def __init__(
+        self, pos_weight: Optional[torch.Tensor] = None, binary_loss_weight: float = 1.0
+    ):
         super().__init__()
         # self.bce_with_weights = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
         # self.bce = torch.nn.BCEWithLogitsLoss()
-        self.bce_with_weights = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight, reduction='none')
-        self.bce = torch.nn.BCEWithLogitsLoss(reduction='none')
+        self.bce_with_weights = torch.nn.BCEWithLogitsLoss(
+            pos_weight=pos_weight, reduction="none"
+        )
+        self.bce = torch.nn.BCEWithLogitsLoss(reduction="none")
         self.binary_loss_weight = binary_loss_weight
     
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -37,21 +46,22 @@ class CustomLoss(torch.nn.Module):
         binary_input = torch.mean(input, dim=1, keepdim=True)
         
         num_tar_defects = torch.sum(target, 1, True)  # Number of target defects for each x (batch_size, 1)
-        binary_target = num_tar_defects.clamp(0, 1)  # (batch_size, 1) 0 or 1        
+        binary_target = num_tar_defects.clamp(0, 1)  # (batch_size, 1) 0 or 1
         binary_positive_weight = num_tar_defects / target.shape[1]  # (batch_size, 1)
         
         binary_loss = self.bce(binary_input, binary_target)  # without reduction (batch_size, 1)
         
         # final_loss = torch.mean(torch.mean(normal_loss, 1, keepdim=True))  # No binary loss (VERSION 0)   torch.mean(torch.mean(normal_loss, 1, keepdim=True) + self.binary_loss_weight * binary_loss)
         # final_loss = normal_loss + self.binary_loss_weight * binary_loss # Loss v0 with individual loss reduction (VERSION 1)
-        # final_loss = torch.mean(torch.mean(normal_loss, 1, keepdim=True) + self.binary_loss_weight * binary_loss) # Loss v0 with group reduction (VERSION 1)
+        final_loss = torch.mean(torch.mean(normal_loss, 1, keepdim=True) + self.binary_loss_weight * binary_loss) # Loss v0 with group reduction (VERSION 1)
         # final_loss = torch.mean(binary_target * torch.mean(normal_loss, 1, keepdim=True)  + (1-binary_target) * (torch.mean(normal_loss, 1, keepdim=True) + self.binary_loss_weight * binary_loss)) # (VERSION 2)
-        final_loss = torch.mean(
-            binary_target * (torch.mean(normal_loss, 1, keepdim=True) + binary_positive_weight * self.binary_loss_weight * binary_loss)  + 
-            (1-binary_target) * (torch.mean(normal_loss, 1, keepdim=True) + self.binary_loss_weight * binary_loss)
-        )  # (VERSION 3)
+        # final_loss = torch.mean(
+        #     binary_target * (torch.mean(normal_loss, 1, keepdim=True) + binary_positive_weight * self.binary_loss_weight * binary_loss)  + 
+        #     (1-binary_target) * (torch.mean(normal_loss, 1, keepdim=True) + self.binary_loss_weight * binary_loss)
+        # )  # (VERSION 3)
         
         return final_loss
+
 
 def main(args):
     pl.seed_everything(1234567890)
@@ -179,7 +189,7 @@ def main(args):
         max_epochs=args.max_epochs,
         benchmark=True,
         logger=logger,
-        callbacks=[checkpoint_callback, lr_monitor],#, early_stopper],
+        callbacks=[checkpoint_callback, lr_monitor],  # , early_stopper],
     )
 
     try:
@@ -199,7 +209,7 @@ def run_cli():
     parser.add_argument("--ann_root", type=str, default="./annotations")
     parser.add_argument("--data_root", type=str, default="./Data")
     parser.add_argument("--workers", type=int, default=4)
-    parser.add_argument("--checkpoint", type=str, default=None, help="If resuming training, specify the checkpoint path")
+    parser.add_argument("--checkpoint", type=str, default=None, help="If resuming")
     parser.add_argument("--log_save_dir", type=str, default="./logs")
     parser.add_argument("--log_version", type=int, default=1)
     parser.add_argument(
