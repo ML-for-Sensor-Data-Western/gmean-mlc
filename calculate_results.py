@@ -43,7 +43,7 @@ def calcualteResults(args):
 
             scores = scoresDf[Labels].values
 
-            new, main, auxillary = evaluation(scores, targets, LabelWeights, threshold=0.5)
+            main_metrics, meta_metrics, class_metrics = evaluation(scores, targets, LabelWeights, threshold=0.5)
 
             outputName = "{}_{}".format(split, scoreFile)
             if split.lower() == "test":
@@ -55,7 +55,7 @@ def calcualteResults(args):
 
 
             with open(os.path.join(outputPath,'{}.json'.format(outputName)), 'w') as fp:
-                json.dump({"New": new, "Main": main, "Auxillary": auxillary, "Labels": Labels, "LabelWeights": LabelWeights,}, fp, indent=4)
+                json.dump({"Main": main_metrics, "Meta": meta_metrics, "Class": class_metrics, "Labels": Labels, "LabelWeights": LabelWeights,}, fp, indent=4)
 
 
 if __name__ == "__main__":
