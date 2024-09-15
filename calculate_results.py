@@ -1,13 +1,33 @@
-import os
-import json
 import argparse
+import json
+import os
+
 import pandas as pd
+
 from metrics import evaluation
 
-
-LabelWeightDict = {"RB":1.00,"OB":0.5518,"PF":0.2896,"DE":0.1622,"FS":0.6419,"IS":0.1847,"RO":0.3559,"IN":0.3131,"AF":0.0811,"BE":0.2275,"FO":0.2477,"GR":0.0901,"PH":0.4167,"PB":0.4167,"OS":0.9009,"OP":0.3829,"OK":0.4396}
+LabelWeightDict = {
+    "RB": 1.00,
+    "OB": 0.5518,
+    "PF": 0.2896,
+    "DE": 0.1622,
+    "FS": 0.6419,
+    "IS": 0.1847,
+    "RO": 0.3559,
+    "IN": 0.3131,
+    "AF": 0.0811,
+    "BE": 0.2275,
+    "FO": 0.2477,
+    "GR": 0.0901,
+    "PH": 0.4167,
+    "PB": 0.4167,
+    "OS": 0.9009,
+    "OP": 0.3829,
+    "OK": 0.4396,
+}
 Labels = list(LabelWeightDict.keys())
 LabelWeights = list(LabelWeightDict.values())
+
 
 def calcualteResults(args):
     scorePath = args["score_path"]
@@ -30,7 +50,11 @@ def calcualteResults(args):
         for scoreFile in files:
             if split.lower() not in scoreFile:
                 continue
-            if "e2e" not in scoreFile and "twostage" not in scoreFile and "defect" not in scoreFile:
+            if (
+                "e2e" not in scoreFile
+                and "twostage" not in scoreFile
+                and "defect" not in scoreFile
+            ):
                 continue
             if not "sigmoid" in scoreFile:
                 continue
@@ -43,27 +67,42 @@ def calcualteResults(args):
 
             scores = scoresDf[Labels].values
 
-            main_metrics, meta_metrics, class_metrics = evaluation(scores, targets, LabelWeights, threshold=0.5)
+            main_metrics, meta_metrics, class_metrics = evaluation(
+                scores, targets, LabelWeights, threshold=0.5
+            )
 
             outputName = "{}_{}".format(split, scoreFile)
             if split.lower() == "test":
-                outputName = outputName[:len(outputName) - len("_test_sigmoid.csv")]
+                outputName = outputName[: len(outputName) - len("_test_sigmoid.csv")]
             elif split.lower() == "val":
-                outputName = outputName[:len(outputName) - len("_val_sigmoid.csv")]
+                outputName = outputName[: len(outputName) - len("_val_sigmoid.csv")]
             elif split.lower() == "train":
-                outputName = outputName[:len(outputName) - len("_train_sigmoid.csv")]
+                outputName = outputName[: len(outputName) - len("_train_sigmoid.csv")]
 
-
-            with open(os.path.join(outputPath,'{}.json'.format(outputName)), 'w') as fp:
-                json.dump({"Main": main_metrics, "Meta": meta_metrics, "Class": class_metrics, "Labels": Labels, "LabelWeights": LabelWeights,}, fp, indent=4)
+            with open(
+                os.path.join(outputPath, "{}.json".format(outputName)), "w"
+            ) as fp:
+                json.dump(
+                    {
+                        "Main": main_metrics,
+                        "Meta": meta_metrics,
+                        "Class": class_metrics,
+                        "Labels": Labels,
+                        "LabelWeights": LabelWeights,
+                    },
+                    fp,
+                    indent=4,
+                )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output_path", type=str, default = "./results")
-    parser.add_argument("--split", type=str, default = "Val", choices=["Train", "Val", "Test"])
-    parser.add_argument("--score_path", type=str, default = "./results")
-    parser.add_argument("--gt_path", type=str, default = "./annotations")
+    parser.add_argument("--output_path", type=str, default="./results")
+    parser.add_argument(
+        "--split", type=str, default="Val", choices=["Train", "Val", "Test"]
+    )
+    parser.add_argument("--score_path", type=str, default="./results")
+    parser.add_argument("--gt_path", type=str, default="./annotations")
 
     args = vars(parser.parse_args())
 
