@@ -55,26 +55,7 @@ def calcualteResults(args):
 
 
             with open(os.path.join(outputPath,'{}.json'.format(outputName)), 'w') as fp:
-                json.dump({"Labels": Labels, "LabelWeights": LabelWeights, "New": new, "Main": main, "Auxillary": auxillary}, fp, indent=4)
-
-            newString = "{:.2f} & {:.2f} ".format(new["F2"]*100,  auxillary["F1_class"][-1]*100)
-
-            aveargeString = "{:.2f} & {:.2f} & {:.2f} & {:.2f} & {:.2f} & {:.2f} & {:.2f} & {:.2f} & {:.2f} & {:.2f}".format(main["mF1"]*100, main["MF1"]*100, main["OF1"]*100, main["OP"]*100, main["OR"]*100, main["CF1"]*100, main["CP"]*100, main["CR"]*100, main["EMAcc"]*100, main["mAP"]*100)
-            
-            classF1String = " & ".join(["{:.2f}".format(x*100) for x in auxillary["F1_class"]])
-            classF2String = " & ".join(["{:.2f}".format(x*100) for x in new["F2_class"]])
-            classPString = " & ".join(["{:.2f}".format(x*100) for x in auxillary["P_class"]])
-            classRString = " & ".join(["{:.2f}".format(x*100) for x in auxillary["R_class"]])
-            classAPString = " & ".join(["{:.2f}".format(x*100) for x in auxillary["AP"]])
-
-            with open(os.path.join(outputPath,'{}_latex.txt'.format(outputName)), "w") as text_file:
-                text_file.write("New metrics: " + newString + "\n")
-                text_file.write("ML main metrics: " + aveargeString + "\n")
-                text_file.write("Class F1: " + classF1String + "\n")
-                text_file.write("Class F2: " + classF2String + "\n")
-                text_file.write("Class Precision: " + classPString + "\n")
-                text_file.write("Class Recall: " + classRString + "\n")
-                text_file.write("Class AP: " + classAPString + "\n")
+                json.dump({"New": new, "Main": main, "Auxillary": auxillary, "Labels": Labels, "LabelWeights": LabelWeights,}, fp, indent=4)
 
 
 if __name__ == "__main__":
