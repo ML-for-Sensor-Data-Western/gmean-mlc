@@ -30,21 +30,22 @@ LabelWeights = list(LabelWeightDict.values())
 
 
 def calcualteResults(args):
-    scorePath = args["score_path"]
-    targetPath = args["gt_path"]
+    scorePath = args.score_path
+    targetPath = args.gt_path
 
-    outputPath = args["output_path"]
+    outputPath = args.output_path
 
     if not os.path.isdir(outputPath):
         os.makedirs(outputPath)
 
-    split = args["split"]
+    split = args.split
 
     targetSplitpath = os.path.join(targetPath, "SewerML_{}.csv".format(split))
     targetsDf = pd.read_csv(targetSplitpath, sep=",")
     targetsDf = targetsDf.sort_values(by=["Filename"]).reset_index(drop=True)
     targets = targetsDf[Labels].values
 
+    print(args.threshold)
     for subdir, dirs, files in os.walk(scorePath):
         print("Iterating in dir: ", subdir)
         for scoreFile in files:
@@ -68,16 +69,10 @@ def calcualteResults(args):
             scores = scoresDf[Labels].values
 
             main_metrics, meta_metrics, class_metrics = evaluation(
-                scores, targets, LabelWeights, threshold=0.5
+                scores, targets, LabelWeights, threshold=args.threshold
             )
 
-            outputName = "{}_{}".format(split, scoreFile)
-            if split.lower() == "test":
-                outputName = outputName[: len(outputName) - len("_test_sigmoid.csv")]
-            elif split.lower() == "val":
-                outputName = outputName[: len(outputName) - len("_val_sigmoid.csv")]
-            elif split.lower() == "train":
-                outputName = outputName[: len(outputName) - len("_train_sigmoid.csv")]
+            outputName = "{}_{}_{}".format(split, scoreFile[:-4], args.threshold)
 
             with open(
                 os.path.join(outputPath, "{}.json".format(outputName)), "w"
@@ -97,6 +92,7 @@ def calcualteResults(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--threshold", type=float, default=0.5)
     parser.add_argument("--output_path", type=str, default="./results")
     parser.add_argument(
         "--split", type=str, default="Val", choices=["Train", "Val", "Test"]
@@ -104,6 +100,6 @@ if __name__ == "__main__":
     parser.add_argument("--score_path", type=str, default="./results")
     parser.add_argument("--gt_path", type=str, default="./annotations")
 
-    args = vars(parser.parse_args())
+    args = parser.parse_args()
 
     calcualteResults(args)
