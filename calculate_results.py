@@ -44,8 +44,7 @@ def calcualteResults(args):
     targetsDf = pd.read_csv(targetSplitpath, sep=",")
     targetsDf = targetsDf.sort_values(by=["Filename"]).reset_index(drop=True)
     targets = targetsDf[Labels].values
-
-    print(args.threshold)
+    
     for subdir, dirs, files in os.walk(scorePath):
         print("Iterating in dir: ", subdir)
         for scoreFile in files:
@@ -79,6 +78,13 @@ def calcualteResults(args):
             ) as fp:
                 json.dump(
                     {
+                        "Highlights": {
+                            "CIW_F2": main_metrics["CIW_F2"],
+                            "MACRO_F2": main_metrics["MACRO_F2"],
+                            "MACRO_F1": main_metrics["MACRO_F1"],
+                            "NORMAL_F1": meta_metrics["NORMAL_F1"],
+                            "DEFECT_F1": meta_metrics["DEFECT_F1"],
+                            },
                         "Main": main_metrics,
                         "Meta": meta_metrics,
                         "Class": class_metrics,
