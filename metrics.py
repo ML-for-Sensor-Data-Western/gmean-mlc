@@ -226,12 +226,12 @@ def evaluation(scores, targets, weights, threshold=0.5):
         "NORMAL_R": normal_r,
         "NORMAL_F1": normal_f1,
         "NORMAL_F2": normal_f2,
-        "DEFECT_NP": n_p_defect,
-        "DEFECT_NTP": n_tp_defect,
-        "DEFECT_NG": n_g_defect,
-        "NORMAL_NP": n_p_normal,
-        "NORMAL_NTP": n_tp_normal,
-        "NORMAL_NG": n_g_normal,
+        "DEFECT_NP": int(n_p_defect),
+        "DEFECT_NTP": int(n_tp_defect),
+        "DEFECT_NG": int(n_g_defect),
+        "NORMAL_NP": int(n_p_normal),
+        "NORMAL_NTP": int(n_tp_normal),
+        "NORMAL_NG": int(n_g_normal),
     }
 
     # Class-wise Counts and Metrics
