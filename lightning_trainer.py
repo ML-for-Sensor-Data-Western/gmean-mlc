@@ -51,7 +51,7 @@ class CustomLoss(torch.nn.Module):
         
         binary_loss = self.bce(binary_input, binary_target)  # without reduction (batch_size, 1)
         
-        # final_loss = torch.mean(torch.mean(normal_loss, 1, keepdim=True))  # No binary loss (VERSION 0)   torch.mean(torch.mean(normal_loss, 1, keepdim=True) + self.binary_loss_weight * binary_loss)
+        # final_loss = torch.mean(torch.mean(normal_loss, 1, keepdim=True))  # No binary loss (VERSION 0)   
         # final_loss = normal_loss + self.binary_loss_weight * binary_loss # Loss v0 with individual loss reduction (VERSION 1)
         final_loss = torch.mean(torch.mean(normal_loss, 1, keepdim=True) + self.binary_loss_weight * binary_loss) # Loss v0 with group reduction (VERSION 1)
         # final_loss = torch.mean(binary_target * torch.mean(normal_loss, 1, keepdim=True)  + (1-binary_target) * (torch.mean(normal_loss, 1, keepdim=True) + self.binary_loss_weight * binary_loss)) # (VERSION 2)
@@ -137,9 +137,9 @@ def main(args):
     dm.prepare_data()
     dm.setup("fit")
 
-    # Init our model
+    # Init model
     # criterion = torch.nn.BCEWithLogitsLoss(pos_weight=dm.class_weights)
-    criterion = CustomLoss(pos_weight=dm.class_weights, binary_loss_weight=1.)
+    criterion = CustomLoss(pos_weight=dm.class_weights, binary_loss_weight=0.1)
 
     light_model = MultiLabelModel(
         num_classes=dm.num_classes,
