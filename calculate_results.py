@@ -33,11 +33,6 @@ def calcualteResults(args):
     scorePath = args.score_path
     targetPath = args.gt_path
 
-    outputPath = args.output_path
-
-    if not os.path.isdir(outputPath):
-        os.makedirs(outputPath)
-
     split = args.split
 
     targetSplitpath = os.path.join(targetPath, "SewerML_{}.csv".format(split))
@@ -74,7 +69,7 @@ def calcualteResults(args):
             outputName = "{}_{}_{}".format(split, scoreFile[:-4], args.threshold)
 
             with open(
-                os.path.join(outputPath, "{}.json".format(outputName)), "w"
+                os.path.join(args.score_path, "{}.json".format(outputName)), "w"
             ) as fp:
                 json.dump(
                     {
@@ -99,7 +94,6 @@ def calcualteResults(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--threshold", type=float, default=0.5)
-    parser.add_argument("--output_path", type=str, default="./results")
     parser.add_argument(
         "--split", type=str, default="Val", choices=["Train", "Val", "Test"]
     )
