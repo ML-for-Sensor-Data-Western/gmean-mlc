@@ -14,6 +14,7 @@ import torch.nn as nn
 
 import sewer_models
 import ml_models
+from lightning_trainer import CustomLoss
 
 
 TORCHVISION_MODEL_NAMES = sorted(name for name in torch_models.__dict__ if name.islower() and not name.startswith("__") and callable(torch_models.__dict__[name]))
