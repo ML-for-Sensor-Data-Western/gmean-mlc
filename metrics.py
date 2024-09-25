@@ -1,9 +1,70 @@
 import numpy as np
 
-def average_precision(scores, target, max_k = None):
-    
-    assert scores.shape == target.shape, "The input and targets do not have the same shape"
-    assert scores.ndim == 1, "The input has dimension {}, but expected it to be 1D".format(scores.shape)
+# False Positives = n_p - n_tp
+# False Negatives = n_g - n_tp
+# True Positives = n_tp
+# True Negatives = n_examples - n_p + (n_g - n_tp)
+
+
+def get_class_counts(scores, targets, threshold):
+    _, n_class = scores.shape
+
+    # Arrays to hold binary classification information, size n_class +1 to also hold the implicit normal class
+    n_tp = np.zeros(n_class)  # True positives
+    n_p = np.zeros(n_class)  # Total Positives
+    n_g = np.zeros(n_class)  # Total number of Ground Truth occurences
+
+    # Array to hold the average precision metric.
+    ap = np.zeros(n_class)
+
+    for k in range(n_class):
+        scores_k = scores[:, k]
+        targets_k = targets[:, k]
+        # Necessary if using MultiLabelSoftMarginLoss, instead of BCEWithLogitsLoss
+        targets_k[targets_k == -1] = 0
+
+        n_g[k] = np.sum(targets_k == 1)
+        n_p[k] = np.sum(scores_k >= threshold)
+        n_tp[k] = np.sum(targets_k * (scores_k >= threshold))
+
+        ap[k] = get_average_precision(scores_k, targets_k)
+
+    # If Np is 0 for any class, set to 1 to avoid division with 0
+    n_p[n_p == 0] = 1
+
+    return n_tp, n_p, n_g, ap
+
+
+def get_defect_normal_counts(scores, targets, threshold):
+    scores_defect = np.sum(scores >= threshold, axis=1)
+    scores_defect[scores_defect > 0] = 1
+    scores_normal = np.abs(scores_defect - 1)
+
+    targets_defect = targets.copy()
+    # Necessary if using MultiLabelSoftMarginLoss, instead of BCEWithLogitsLoss
+    targets_defect[targets == -1] = 0
+    targets_defect = np.sum(targets_defect, axis=1)
+    targets_defect[targets_defect > 0] = 1
+    targets_normal = np.abs(targets_defect - 1)
+
+    n_g_defect = np.sum(targets_defect == 1)
+    n_p_defect = np.sum(scores_defect == 1)
+    n_tp_defect = np.sum(targets_defect * scores_defect)
+
+    n_g_normal = np.sum(targets_normal == 1)
+    n_p_normal = np.sum(scores_normal == 1)
+    n_tp_normal = np.sum(targets_normal * scores_normal)
+
+    return n_tp_defect, n_p_defect, n_g_defect, n_tp_normal, n_p_normal, n_g_normal
+
+
+def get_average_precision(scores, target, max_k=None):
+    assert (
+        scores.shape == target.shape
+    ), "The input and targets do not have the same shape"
+    assert (
+        scores.ndim == 1
+    ), "The input has dimension {}, but expected it to be 1D".format(scores.shape)
 
     # sort examples
     indices = np.argsort(scores, axis=0)[::-1]
@@ -12,11 +73,11 @@ def average_precision(scores, target, max_k = None):
 
     if max_k == None:
         max_k = len(indices)
-    
+
     # Computes prec@i
-    pos_count = 0.
-    total_count = 0.
-    precision_at_i = 0.
+    pos_count = 0.0
+    total_count = 0.0
+    precision_at_i = 0.0
 
     for i in range(max_k):
         label = target[indices[i]]
@@ -26,7 +87,7 @@ def average_precision(scores, target, max_k = None):
             precision_at_i += pos_count / total_count
         if pos_count == total_cases:
             break
-        
+
     if pos_count > 0:
         precision_at_i /= pos_count
     else:
@@ -34,42 +95,58 @@ def average_precision(scores, target, max_k = None):
     return precision_at_i
 
 
-def micro_f1(Ng, Np, Nc):
-    mF1 = (2 * np.sum(Nc)) / (np.sum(Np) + np.sum(Ng))
+def get_scalar_metrics(n_tp: float, n_p: float, n_g: float):
+    p = n_tp / n_p
+    r = n_tp / n_g
+    f1 = (2 * p * r) / (p + r)
+    f2 = (5 * p * r) / (4 * p + r)
 
-    return mF1
+    return p, r, f1, f2
 
-def macro_f1(Ng, Np, Nc):
-    n_class = len(Ng)
-    precision_k = Nc / Np
-    recall_k = Nc / Ng
-    F1_k = (2 * precision_k * recall_k)/(precision_k + recall_k)
 
-    F1_k[np.isnan(F1_k)] = 0
+def get_micro_metrics(n_g: np.array, n_p: np.array, n_tp: np.array):
+    micro_p = np.sum(n_tp) / np.sum(n_p)
+    micro_r = np.sum(n_tp) / np.sum(n_g)
+    micro_f1 = (2 * micro_p * micro_r) / (micro_p + micro_r)
+    micro_f2 = (5 * micro_p * micro_r) / (4 * micro_p + micro_r)
 
-    MF1 = np.sum(F1_k)/n_class
+    return micro_p, micro_r, micro_f1, micro_f2
 
-    return precision_k, recall_k, F1_k, MF1
 
-def overall_metrics(Ng, Np, Nc):
-    OP = np.sum(Nc) / np.sum(Np)
-    OR = np.sum(Nc) / np.sum(Ng)
-    OF1 = (2 * OP * OR) / (OP + OR)
+def get_class_metrics(Ng, Np, Nc):
+    class_p = Nc / Np
+    class_r = Nc / Ng
+    class_f1 = (2 * class_p * class_r) / (class_p + class_r)
+    class_f2 = (5 * class_p * class_r) / (4 * class_p + class_r)
 
-    return OP, OR, OF1
+    class_f1[np.isnan(class_f1)] = 0
+    class_f2[np.isnan(class_f2)] = 0
 
-def per_class_metrics(Ng, Np, Nc):
-    n_class = len(Ng)
-    CP = np.sum(Nc / Np) / n_class
-    CR = np.sum(Nc / Ng) / n_class
-    CF1 = (2 * CP * CR) / (CP + CR)
+    return class_p, class_r, class_f1, class_f2
 
-    return CP, CR, CF1
 
-def mean_average_precision(ap):
+def get_macro_metrics(class_p, class_r, class_f1, class_f2):
+    n_class = len(class_p)
+    macro_p = np.sum(class_p) / n_class
+    macro_r = np.sum(class_r) / n_class
+    macro_f1 = np.sum(class_f1) / n_class
+    macro_f2 = np.sum(class_f2) / n_class
+
+    return macro_p, macro_r, macro_f1, macro_f2
+
+
+def get_class_weighted_f2(class_f2, weights):
+    ciw_f2 = class_f2 * weights
+    ciw_f2 = np.sum(ciw_f2) / np.sum(weights)
+
+    return ciw_f2
+
+
+def get_mean_average_precision(ap):
     return np.mean(ap)
 
-def exact_match_accuracy(scores, targets, threshold = 0.5):
+
+def get_exact_match_accuracy(scores, targets, threshold=0.5):
     n_examples, n_class = scores.shape
 
     binary_mat = np.equal(targets, (scores >= threshold))
@@ -82,116 +159,91 @@ def exact_match_accuracy(scores, targets, threshold = 0.5):
 
     return EMAcc
 
-def class_weighted_f2(Ng, Np, Nc, weights, threshold=0.5):
-    n_class = len(Ng)
-    precision_k = Nc / Np
-    recall_k = Nc / Ng
-    F2_k = (5 * precision_k * recall_k)/(4*precision_k + recall_k)
 
-    F2_k[np.isnan(F2_k)] = 0
+def evaluation(scores, targets, weights, threshold=0.5):
+    assert (
+        scores.shape == targets.shape
+    ), "The input and targets do not have the same size: Input: {} - Targets: {}".format(
+        scores.shape, targets.shape
+    )
 
-    ciwF2 = F2_k * weights 
-    ciwF2 = np.sum(ciwF2) / np.sum(weights)
+    n_tp, n_p, n_g, ap = get_class_counts(scores, targets, threshold)
 
-    return ciwF2, F2_k
-
-
-def evaluation(scores, targets, weights, threshold = 0.5):
-
-    assert scores.shape == targets.shape, "The input and targets do not have the same size: Input: {} - Targets: {}".format(scores.shape, targets.shape)
-
-    _, n_class = scores.shape
-
-    # Arrays to hold binary classification information, size n_class +1 to also hold the implicit normal class
-    Nc = np.zeros(n_class+1) # Nc = Number of Correct Predictions  - True positives
-    Np = np.zeros(n_class+1) # Np = Total number of Predictions    - True positives + False Positives
-    Ng = np.zeros(n_class+1) # Ng = Total number of Ground Truth occurences
-
-    # False Positives = Np - Nc
-    # False Negatives = Ng - Nc
-    # True Positives = Nc
-    # True Negatives = n_examples - Np + (Ng - Nc)
-
-    # Array to hold the average precision metric. only size n_class, since it is not possible to calculate for the implicit normal class
-    ap = np.zeros(n_class)
-    
-
-    for k in range(n_class):
-        tmp_scores = scores[:, k]
-        tmp_targets = targets[:, k]
-        tmp_targets[tmp_targets == -1] = 0 # Necessary if using MultiLabelSoftMarginLoss, instead of BCEWithLogitsLoss
-
-        Ng[k] = np.sum(tmp_targets == 1)
-        Np[k] = np.sum(tmp_scores >= threshold) # when >= 0 for the raw input, the sigmoid value will be >= 0.5
-        Nc[k] = np.sum(tmp_targets * (tmp_scores >= threshold))
-
-        ap[k] = average_precision(tmp_scores, tmp_targets)
-
-    # Get values for "implict" normal class
-    tmp_scores = np.sum(scores >= threshold, axis=1)
-    tmp_scores[tmp_scores > 0] = 1
-    tmp_scores = np.abs(tmp_scores - 1)
-    
-    tmp_targets = targets.copy()
-    tmp_targets[targets == -1] = 0 # Necessary if using MultiLabelSoftMarginLoss, instead of BCEWithLogitsLoss
-    tmp_targets = np.sum(tmp_targets, axis=1)
-    tmp_targets[tmp_targets > 0] = 1
-    tmp_targets = np.abs(tmp_targets - 1)
-
-    Ng[-1] = np.sum(tmp_targets == 1)
-    Np[-1] = np.sum(tmp_scores >= threshold)
-    Nc[-1] = np.sum(tmp_targets * (tmp_scores >= threshold))
-
-
-
-    # If Np is 0 for any class, set to 1 to avoid division with 0
-    Np[Np == 0] = 1
-
-    # Overall Precision, Recall and F1
-    OP, OR, OF1 = overall_metrics(Ng, Np, Nc)
+    # Micro Precision, Recall and F1
+    micro_p, micro_r, micro_f1, micro_f2 = get_micro_metrics(n_g, n_p, n_tp)
 
     # Per-Class Precision, Recall and F1
-    CP, CR, CF1 = per_class_metrics(Ng, Np, Nc)
+    class_p, class_r, class_f1, class_f2 = get_class_metrics(n_g, n_p, n_tp)
 
-    # Macro F1
-    precision_k, recall_k, F1_k, MF1 = macro_f1(Ng, Np, Nc)
+    # Macro metrics
+    macro_p, macro_r, macro_f1, macro_f2 = get_macro_metrics(
+        class_p, class_r, class_f1, class_f2
+    )
 
-    # Micro F1
-    mF1 = micro_f1(Ng, Np, Nc)
+    ciw_f2 = get_class_weighted_f2(class_f2, weights)
 
     # Zero-One exact match accuracy
-    EMAcc = exact_match_accuracy(scores, targets)
+    EMAcc = get_exact_match_accuracy(scores, targets, threshold)
 
     # Mean Average Precision (mAP)
-    mAP = mean_average_precision(ap)
+    mAP = get_mean_average_precision(ap)
 
+    # Get values for "implict" normal and defect classes
+    n_tp_defect, n_p_defect, n_g_defect, n_tp_normal, n_p_normal, n_g_normal = (
+        get_defect_normal_counts(scores, targets, threshold)
+    )
 
+    # Defect Normal Metrics
+    defect_p, defect_r, defect_f1, defect_f2 = get_scalar_metrics(
+        n_tp_defect, n_p_defect, n_g_defect
+    )
+    normal_p, normal_r, normal_f1, normal_f2 = get_scalar_metrics(
+        n_tp_normal, n_p_normal, n_g_normal
+    )
 
-    F2, F2_k, = class_weighted_f2(Ng[:-1], Np[:-1], Nc[:-1], weights)
+    # Defect Type classification Metrics
+    main_metrics = {
+        "MICRO_P": micro_p,
+        "MICRO_R": micro_r,
+        "MICRO_F1": micro_f1,
+        "MICRO_F2": micro_f2,
+        "MACRO_P": macro_p,
+        "MACRO_R": macro_r,
+        "MACRO_F1": macro_f1,
+        "MACRO_F2": macro_f2,
+        "CIW_F2": ciw_f2,
+        "EMAcc": EMAcc,
+        "mAP": mAP,
+    }
 
-    F2_normal = (5 * precision_k[-1] * recall_k[-1])/(4*precision_k[-1] + recall_k[-1])
+    # Defect/Normal Metrics
+    meta_metrics = {
+        "DEFECT_P": defect_p,
+        "DEFECT_R": defect_r,
+        "DEFECT_F1": defect_f1,
+        "DEFECT_F2": defect_f2,
+        "NORMAL_P": normal_p,
+        "NORMAL_R": normal_r,
+        "NORMAL_F1": normal_f1,
+        "NORMAL_F2": normal_f2,
+        "DEFECT_NP": int(n_p_defect),
+        "DEFECT_NTP": int(n_tp_defect),
+        "DEFECT_NG": int(n_g_defect),
+        "NORMAL_NP": int(n_p_normal),
+        "NORMAL_NTP": int(n_tp_normal),
+        "NORMAL_NG": int(n_g_normal),
+    }
 
-    new_metrics = {"F2": F2,
-                   "F2_class": list(F2_k) + [F2_normal],
-                   "F1_Normal": F1_k[-1]}
+    # Class-wise Counts and Metrics
+    class_metrics = {
+        "P_CLS": list(class_p),
+        "R_CLS": list(class_r),
+        "F1_CLS": list(class_f1),
+        "F2_CLS": list(class_f2),
+        "AP": list(ap),
+        "NP": list(n_p),
+        "NTP": list(n_tp),
+        "NG": list(n_g),
+    }
 
-    main_metrics = {"OP": OP,
-                    "OR": OR,
-                    "OF1": OF1,
-                    "CP": CP,
-                    "CR": CR,
-                    "CF1": CF1,
-                    "MF1": MF1,
-                    "mF1": mF1,
-                    "EMAcc": EMAcc,
-                    "mAP": mAP}
-
-    auxillery_metrics = {"P_class": list(precision_k),
-                         "R_class": list(recall_k),
-                         "F1_class": list(F1_k),
-                         "AP": list(ap),
-                         "Np": list(Np),
-                         "Nc": list(Nc),
-                         "Ng": list(Ng)}
-
-    return new_metrics, main_metrics, auxillery_metrics
+    return main_metrics, meta_metrics, class_metrics
