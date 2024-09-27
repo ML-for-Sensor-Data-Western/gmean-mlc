@@ -32,34 +32,24 @@ class CustomLoss(torch.nn.Module):
         self, pos_weight: Optional[torch.Tensor] = None, binary_loss_weight: float = 1.0
     ):
         super().__init__()
-        # self.bce_with_weights = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-        # self.bce = torch.nn.BCEWithLogitsLoss()
         self.bce_with_weights = torch.nn.BCEWithLogitsLoss(
             pos_weight=pos_weight, reduction="none"
         )
         self.bce = torch.nn.BCEWithLogitsLoss(reduction="none")
         self.binary_loss_weight = binary_loss_weight
-    
+
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        normal_loss = self.bce_with_weights(input, target)  # without reduction (batch_size, num_classes)
-        
         binary_input = torch.mean(input, dim=1, keepdim=True)
-        
-        num_tar_defects = torch.sum(target, 1, True)  # Number of target defects for each x (batch_size, 1)
-        binary_target = num_tar_defects.clamp(0, 1)  # (batch_size, 1) 0 or 1
-        binary_positive_weight = num_tar_defects / target.shape[1]  # (batch_size, 1)
-        
-        binary_loss = self.bce(binary_input, binary_target)  # without reduction (batch_size, 1)
-        
-        # final_loss = torch.mean(torch.mean(normal_loss, 1, keepdim=True))  # No binary loss (VERSION 0)
-        # final_loss = normal_loss + self.binary_loss_weight * binary_loss # Loss v0 with individual loss reduction (VERSION 1)
-        final_loss = torch.mean(torch.mean(normal_loss, 1, keepdim=True) + self.binary_loss_weight * binary_loss) # Loss v0 with group reduction (VERSION 1)
-        # final_loss = torch.mean(binary_target * torch.mean(normal_loss, 1, keepdim=True)  + (1-binary_target) * (torch.mean(normal_loss, 1, keepdim=True) + self.binary_loss_weight * binary_loss)) # (VERSION 2)
-        # final_loss = torch.mean(
-        #     binary_target * (torch.mean(normal_loss, 1, keepdim=True) + binary_positive_weight * self.binary_loss_weight * binary_loss)  + 
-        #     (1-binary_target) * (torch.mean(normal_loss, 1, keepdim=True) + self.binary_loss_weight * binary_loss)
-        # )  # (VERSION 3)
-        
+        binary_target = torch.sum(target, 1, True).clamp(0, 1)  # (batch_size, 1) 0 or 1
+
+        normal_loss = self.bce_with_weights(input, target)  # (batch_size, num_classes)
+        binary_loss = self.bce(binary_input, binary_target)  # (batch_size, 1)
+
+        final_loss = torch.mean(
+            torch.mean(normal_loss, 1, keepdim=True)
+            + self.binary_loss_weight * binary_loss
+        )
+
         return final_loss
 
 
