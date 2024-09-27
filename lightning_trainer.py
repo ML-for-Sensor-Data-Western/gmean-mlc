@@ -51,7 +51,7 @@ class CustomLoss(torch.nn.Module):
         
         binary_loss = self.bce(binary_input, binary_target)  # without reduction (batch_size, 1)
         
-        # final_loss = torch.mean(torch.mean(normal_loss, 1, keepdim=True))  # No binary loss (VERSION 0)   
+        # final_loss = torch.mean(torch.mean(normal_loss, 1, keepdim=True))  # No binary loss (VERSION 0)
         # final_loss = normal_loss + self.binary_loss_weight * binary_loss # Loss v0 with individual loss reduction (VERSION 1)
         final_loss = torch.mean(torch.mean(normal_loss, 1, keepdim=True) + self.binary_loss_weight * binary_loss) # Loss v0 with group reduction (VERSION 1)
         # final_loss = torch.mean(binary_target * torch.mean(normal_loss, 1, keepdim=True)  + (1-binary_target) * (torch.mean(normal_loss, 1, keepdim=True) + self.binary_loss_weight * binary_loss)) # (VERSION 2)
@@ -171,16 +171,36 @@ def main(args):
     checkpoint_callback = ModelCheckpoint(
         dirpath=logger_path,
         filename="{epoch:02d}-{val_acc:.2f}",
-        save_top_k=3,
+        save_top_k=1,
         save_last=True,
         verbose=False,
         monitor="val_acc",
         mode="max",
     )
 
+    checkpoint_callback_f1 = ModelCheckpoint(
+        dirpath=logger_path,
+        filename="{epoch:02d}-{val_f1:.2f}",
+        save_top_k=1,
+        save_last=False,
+        verbose=False,
+        monitor="val_f1",
+        mode="max",
+    )
+
+    checkpoint_callback_f2 = ModelCheckpoint(
+        dirpath=logger_path,
+        filename="{epoch:02d}-{val_f2:.2f}",
+        save_top_k=1,
+        save_last=False,
+        verbose=False,
+        monitor="val_f2",
+        mode="max",
+    )
+
     lr_monitor = LearningRateMonitor(logging_interval="step")
 
-    early_stopper = EarlyStopping(monitor="val_acc", mode="max", patience=10)
+    early_stopper = EarlyStopping(monitor="val_f1", mode="max", patience=20)
 
     trainer = pl.Trainer(
         devices=args.gpus,
@@ -189,7 +209,13 @@ def main(args):
         max_epochs=args.max_epochs,
         benchmark=True,
         logger=logger,
-        callbacks=[checkpoint_callback, lr_monitor],  # , early_stopper],
+        callbacks=[
+            checkpoint_callback,
+            checkpoint_callback_f1,
+            checkpoint_callback_f2,
+            lr_monitor,
+            early_stopper,
+        ],
     )
 
     try:
