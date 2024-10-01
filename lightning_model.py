@@ -2,7 +2,6 @@ import pytorch_lightning as pl
 import torch
 from torchvision import models as torch_models
 
-from torchvision.models.vision_transformer import ViT_B_16_Weights
 from torchmetrics.classification import MultilabelAccuracy, MultilabelF1Score, MultilabelFBetaScore
 
 import ml_models
@@ -49,12 +48,11 @@ class MultiLabelModel(pl.LightningModule):
         **kwargs,
     ):
         super(MultiLabelModel, self).__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore="criterion")
 
         self.num_classes = num_classes
 
         if model in MultiLabelModel.TORCHVISION_MODEL_NAMES:
-            # self.model = torch_models.__dict__[model](num_classes=self.num_classes, weights=ViT_B_16_Weights.IMAGENET1K_V1.value)
             self.model = torch_models.__dict__[model](num_classes=self.num_classes, dropout=dropout, attention_dropout=attention_dropout)
         elif model in MultiLabelModel.SEWER_MODEL_NAMES:
             self.model = sewer_models.__dict__[model](num_classes=self.num_classes)
@@ -64,8 +62,8 @@ class MultiLabelModel(pl.LightningModule):
             raise ValueError(
                 "Got model {}, but no such model is in this codebase".format(model)
             )
-
-        self.aux_logits = hasattr(self.model, "aux_logits")
+            
+        self.biases = torch.nn.Parameter(torch.zeros(1, 17), requires_grad=True)
 
         self.criterion = criterion
         self.criterion_no_weight = torch.nn.BCEWithLogitsLoss()
@@ -85,18 +83,13 @@ class MultiLabelModel(pl.LightningModule):
         self.batch_size = batch_size
 
     def forward(self, x):
-        logits = self.model(x)
-        return logits
+        logits_before_bias = self.model(x)
+        logits = logits_before_bias + self.biases
+        return logits_before_bias, logits
 
-    def aux_loss(self, y_hat, y_aux_hat, y):
+    def loss(self, logits_before_bias, logits, y):
         y = y.float()
-        loss = self.criterion(y_hat, y) + 0.4 * self.criterion(y_aux_hat, y)
-
-        return loss
-
-    def normal_loss(self, y_hat, y):
-        y = y.float()
-        loss = self.criterion(y_hat, y)
+        loss = self.criterion(logits_before_bias, logits, y)
 
         return loss
     
@@ -119,16 +112,11 @@ class MultiLabelModel(pl.LightningModule):
     
     def training_step(self, batch, batch_idx):
         x, y, _ = batch
-        logits = self(x)
+        logits_before_bias, logits = self(x)
+
+        loss = self.loss(logits_before_bias, logits, y)
         
-        if self.aux_logits:
-            y_hat, y_aux_hat = logits
-            loss = self.aux_loss(y_hat, y_aux_hat, y)
-        else:
-            y_hat = logits
-            loss = self.normal_loss(y_hat, y)
-        
-        accuracy = self.multiclass_accuracy(y_hat, y)
+        accuracy = self.multiclass_accuracy(logits, y)
         
         self.log(
             "train_loss",
@@ -150,13 +138,13 @@ class MultiLabelModel(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y, _ = batch
-        y_hat = self(x)
-        loss = self.normal_loss(y_hat, y)
+        logits_before_bias, logits = self(x)
+        loss = self.loss(logits_before_bias, logits, y)
         
-        accuracy = self.multiclass_accuracy(y_hat, y)
-        f1 = self.multiclass_f1(y_hat, y)
-        f2 = self.multiclass_f2(y_hat, y)
-        bce_loss_wo_weight = self.bce_loss_wo_weight(y_hat, y)
+        accuracy = self.multiclass_accuracy(logits, y)
+        f1 = self.multiclass_f1(logits, y)
+        f2 = self.multiclass_f2(logits, y)
+        bce_loss_wo_weight = self.bce_loss_wo_weight(logits, y)
         
         self.log(
             "val_loss",
@@ -202,11 +190,11 @@ class MultiLabelModel(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         x, y, _ = batch
-        y_hat = self(x)
-        loss = self.normal_loss(x, y)
-        accuracy = self.multiclass_accuracy(y_hat, y)
-        f1 = self.multiclass_f1(y_hat, y)
-        f2 = self.multiclass_f2(y_hat, y)
+        logits_before_bias, logits = self(x)
+        loss = self.loss(logits_before_bias, logits, y)
+        accuracy = self.multiclass_accuracy(logits, y)
+        f1 = self.multiclass_f1(logits, y)
+        f2 = self.multiclass_f2(logits, y)
         self.log("test_loss", loss)
         self.log("test_acc", accuracy)
         self.log("test_f1", f1)
