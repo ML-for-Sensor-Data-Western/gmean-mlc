@@ -41,7 +41,7 @@ def evaluate(dataloader, model, device):
 
             images = images.to(device)
 
-            output = model(images)            
+            _, output = model(images)            
 
             sigmoidOutput = sigmoid(output).detach().cpu().numpy()
 
@@ -81,6 +81,8 @@ def load_model(model_path, best_weights=False):
     for k,v in best_model_state_dict.items():
         if "criterion" in k:
             del best_model_state_dict[k]
+        if "biases" in k:
+            print(f"Biases in last layer: {v}")
 
     return best_model_state_dict, model_name, num_classes, training_mode, br_defect
 
