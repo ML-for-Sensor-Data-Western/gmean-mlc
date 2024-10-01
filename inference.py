@@ -15,6 +15,7 @@ import torch.nn as nn
 import sewer_models
 import ml_models
 from lightning_trainer import CustomLoss
+from lightning_model import MultiLabelModel
 
 
 TORCHVISION_MODEL_NAMES = sorted(name for name in torch_models.__dict__ if name.islower() and not name.startswith("__") and callable(torch_models.__dict__[name]))
@@ -73,22 +74,15 @@ def load_model(model_path, best_weights=False):
     br_defect = model_last_ckpt["hyper_parameters"]["br_defect"]
     
     # Load best checkpoint
-
-    
     best_model = model_last_ckpt
-    
-
     best_model_state_dict = best_model["state_dict"]
-
-    updated_state_dict = OrderedDict()
+    
+    # delete the "criterion" key from the state_dict
     for k,v in best_model_state_dict.items():
-        name = k.replace("model.", "")
-        if "criterion" in name:
-            continue
+        if "criterion" in k:
+            del best_model_state_dict[k]
 
-        updated_state_dict[name] = v
-
-    return updated_state_dict, model_name, num_classes, training_mode, br_defect
+    return best_model_state_dict, model_name, num_classes, training_mode, br_defect
 
 
 def run_inference(args):
@@ -104,26 +98,25 @@ def run_inference(args):
         os.makedirs(outputPath)
   
     updated_state_dict, model_name, num_classes, training_mode, br_defect = load_model(model_path, best_weights)
+    
+    if model_name not in MODEL_NAMES:
+        raise ValueError("Got model {}, but no such model is in this codebase".format(model_name))
 
     if "model_version" not in args.keys():
         model_version = model_name
     else:
         model_version = args["model_version"]
 
-    # Init model
-    if model_name in TORCHVISION_MODEL_NAMES:
-        model = torch_models.__dict__[model_name](num_classes = num_classes)
-    elif model_name in SEWER_MODEL_NAMES:
-        model = sewer_models.__dict__[model_name](num_classes = num_classes)
-    elif model_name in MULTILABEL_MODEL_NAMES:
-        model = ml_models.__dict__[model_name](num_classes = num_classes)
-    else:
-        raise ValueError("Got model {}, but no such model is in this codebase".format(model_name))
+    lt_model = MultiLabelModel(
+        model = model_name,
+        num_classes=num_classes,
+        criterion=CustomLoss(),
+    )
 
-    model.load_state_dict(updated_state_dict)
+    lt_model.load_state_dict(updated_state_dict)
     
     # initialize dataloaders
-    img_size = 299 if model in ["inception_v3", "chen2018_multilabel"] else 224
+    img_size = 299 if model_name in ["inception_v3", "chen2018_multilabel"] else 224
     
     eval_transform=transforms.Compose([
             transforms.Resize((img_size, img_size)),
@@ -144,11 +137,11 @@ def run_inference(args):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = model.to(device)
+    lt_model = lt_model.to(device)
 
     # Validation results
     print("VALIDATION")
-    sigmoid_predictions, val_imgPaths = evaluate(dataloader, model, device)
+    sigmoid_predictions, val_imgPaths = evaluate(dataloader, lt_model, device)
 
     sigmoid_dict = {}
     sigmoid_dict["Filename"] = val_imgPaths
