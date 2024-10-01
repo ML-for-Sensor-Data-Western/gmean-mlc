@@ -128,8 +128,7 @@ def main(args):
     dm.setup("fit")
 
     # Init model
-    # criterion = torch.nn.BCEWithLogitsLoss(pos_weight=dm.class_weights)
-    criterion = CustomLoss(pos_weight=dm.class_weights, binary_loss_weight=0.1)
+    criterion = CustomLoss(pos_weight=dm.class_weights, binary_loss_weight=args.defect_loss_weight)
 
     light_model = MultiLabelModel(
         num_classes=dm.num_classes,
@@ -272,6 +271,7 @@ def run_cli():
     parser.add_argument(
         "--model", type=str, default="resnet18", choices=MultiLabelModel.MODEL_NAMES
     )
+    parser.add_argument("--defect_loss_weight", type=float, default=1.0)
     parser.add_argument("--learning_rate", type=float, default=1e-2)
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--weight_decay", type=float, default=0.0001)
