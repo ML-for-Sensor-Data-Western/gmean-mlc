@@ -186,10 +186,20 @@ def main(args):
         monitor="val_f2",
         mode="max",
     )
+    
+    checkpoint_callback_ap = ModelCheckpoint(
+        dirpath=logger_path,
+        filename="{epoch:02d}-{val_ap:.2f}",
+        save_top_k=1,
+        save_last=False,
+        verbose=False,
+        monitor="val_ap",
+        mode="max",
+    )
 
     lr_monitor = LearningRateMonitor(logging_interval="step")
 
-    early_stopper = EarlyStopping(monitor="val_f1", mode="max", patience=20)
+    early_stopper = EarlyStopping(monitor="val_ap", mode="max", patience=20)
 
     trainer = pl.Trainer(
         devices=args.gpus,
@@ -202,6 +212,7 @@ def main(args):
             checkpoint_callback,
             checkpoint_callback_f1,
             checkpoint_callback_f2,
+            checkpoint_callback_ap,
             lr_monitor,
             early_stopper,
         ],
