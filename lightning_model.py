@@ -112,7 +112,6 @@ class MultiLabelModel(pl.LightningModule):
         return self.f2(y_hat, y)
     
     def multiclass_ap(self, y_hat, y):
-        y = y.float()
         return self.ap(y_hat, y)
     
     def training_step(self, batch, batch_idx):
