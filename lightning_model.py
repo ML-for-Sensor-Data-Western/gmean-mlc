@@ -2,7 +2,8 @@ import pytorch_lightning as pl
 import torch
 from torchvision import models as torch_models
 
-from torchmetrics.classification import MultilabelAccuracy, MultilabelF1Score, MultilabelFBetaScore, MultilabelAveragePrecision
+from torchmetrics.classification import MultilabelAccuracy, MultilabelF1Score, MultilabelFBetaScore
+from eval_metrics import MultiLabelAveragePrecision
 
 import ml_models
 import sewer_models
@@ -70,7 +71,7 @@ class MultiLabelModel(pl.LightningModule):
         self.accuracy = MultilabelAccuracy(num_labels=self.num_classes, average="macro")
         self.f1 = MultilabelF1Score(num_labels=self.num_classes, average="macro")
         self.f2 = MultilabelFBetaScore(num_labels=self.num_classes, beta=2., average="macro")
-        self.ap = MultilabelAveragePrecision(num_labels=self.num_classes, average="macro")
+        self.ap = MultiLabelAveragePrecision(num_labels=self.num_classes)
 
         if callable(getattr(self.criterion, "set_device", None)):
             self.criterion.set_device(self.device)
