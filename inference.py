@@ -41,9 +41,11 @@ def evaluate(dataloader, model, device):
 
             images = images.to(device)
 
-            _, output = model(images)            
+            output_before_bias, output = model(images)            
 
-            sigmoidOutput = sigmoid(output).detach().cpu().numpy()
+            sigmoidOutput = sigmoid(output)#.detach().cpu().numpy()
+            defect_output = sigmoid(torch.mean(output_before_bias, dim=1, keepdim=True))#detach().cpu().numpy()
+            sigmoidOutput = torch.concat((sigmoidOutput, defect_output), dim=1).detach().cpu().numpy()
 
             if sigmoidPredictions is None:
                 sigmoidPredictions = sigmoidOutput
@@ -149,6 +151,7 @@ def run_inference(args):
     sigmoid_dict["Filename"] = val_imgPaths
     for idx, header in enumerate(labelNames):
         sigmoid_dict[header] = sigmoid_predictions[:,idx]
+    sigmoid_dict["Defect"] = sigmoid_predictions[:,-1]
 
     sigmoid_df = pd.DataFrame(sigmoid_dict)
     sigmoid_df.to_csv(os.path.join(outputPath, "{}_{}_{}_sigmoid.csv".format(model_version, training_mode, split.lower())), sep=",", index=False)

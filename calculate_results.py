@@ -31,8 +31,8 @@ LABEL_WEIGHTS = list(LABEL_WEIGHT_DICT.values())
 
 
 def calculate_results_thresholds(scores, targets, score_file, args):
-    num_class = scores.shape[1]
-    
+    num_class = scores.shape[1] - 1 
+
     thresholds = [i/100 for i in range(5, 100, 5)]
     macro_f1 = []
     macro_f2 = []
@@ -177,7 +177,7 @@ if __name__ == "__main__":
             scores_df = pd.read_csv(os.path.join(subdir, score_file), sep=",")
             scores_df = scores_df.sort_values(by=["Filename"]).reset_index(drop=True)
 
-            scores = scores_df[LABELS].values
+            scores = scores_df[LABELS + ["Defect"]].values
             if args.multi_threshold:
                 calculate_results_thresholds(scores, targets, score_file, args)
             else:

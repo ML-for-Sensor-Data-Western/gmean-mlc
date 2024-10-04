@@ -161,6 +161,8 @@ def get_exact_match_accuracy(scores, targets, threshold=0.5):
 
 
 def evaluation(scores, targets, weights, threshold=0.5):
+    defect_scores = scores[:, -1:]
+    scores = scores[:, :-1]
     assert (
         scores.shape == targets.shape
     ), "The input and targets do not have the same size: Input: {} - Targets: {}".format(
@@ -190,7 +192,7 @@ def evaluation(scores, targets, weights, threshold=0.5):
 
     # Get values for "implict" normal and defect classes
     n_tp_defect, n_p_defect, n_g_defect, n_tp_normal, n_p_normal, n_g_normal = (
-        get_defect_normal_counts(scores, targets, threshold)
+        get_defect_normal_counts(defect_scores, targets, threshold)
     )
 
     # Defect Normal Metrics
