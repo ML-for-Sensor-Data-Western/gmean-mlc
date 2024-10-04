@@ -100,18 +100,19 @@ class MultiLabelModel(pl.LightningModule):
         return loss
     
     def multiclass_accuracy(self, y_hat, y):
-        y = y.float()
+        y = y.int()
         return self.accuracy(y_hat, y)
     
     def multiclass_f1(self, y_hat, y):
-        y = y.float()
+        y = y.int()
         return self.f1(y_hat, y)
     
     def multiclass_f2(self, y_hat, y):
-        y = y.float()
+        y = y.int()
         return self.f2(y_hat, y)
     
     def multiclass_ap(self, y_hat, y):
+        y = y.int()
         return self.ap(y_hat, y)
     
     def training_step(self, batch, batch_idx):
