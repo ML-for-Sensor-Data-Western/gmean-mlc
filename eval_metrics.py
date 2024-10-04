@@ -1,23 +1,25 @@
 from torchmetrics import Metric
+from torchmetrics.utilities import dim_zero_cat
 import torch
 
-class MultiLabelAveragePrecision(Metric):
+class CustomMultiLabelAveragePrecision(Metric):
+    
     def __init__(self, num_labels, **kwargs):
         super().__init__(**kwargs)
         self.num_labels = num_labels
         # States for accumulating predictions and targets
         self.add_state("preds", default=[], dist_reduce_fx="cat")
-        self.add_state("targets", default=[], dist_reduce_fx="cat")
+        self.add_state("target", default=[], dist_reduce_fx="cat")
 
     def update(self, preds: torch.Tensor, target: torch.Tensor) -> None:
         # Accumulate predictions and targets for each batch
         self.preds.append(preds)
-        self.targets.append(target)
+        self.target.append(target)
 
     def compute(self) -> torch.Tensor:
         # Concatenate all accumulated predictions and targets
-        all_preds = torch.cat(self.preds, dim=0)
-        all_targets = torch.cat(self.targets, dim=0)
+        all_preds = dim_zero_cat(self.preds)
+        all_targets = dim_zero_cat(self.target)
 
         ap_per_class = torch.zeros(self.num_labels)
 
