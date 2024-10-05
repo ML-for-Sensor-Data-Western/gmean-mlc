@@ -3,7 +3,7 @@ import torch
 from torchvision import models as torch_models
 
 from torchmetrics.classification import MultilabelAccuracy, MultilabelF1Score, MultilabelFBetaScore
-from eval_metrics import CustomMultiLabelAveragePrecision
+from eval_metrics import CustomMultiLabelAveragePrecision, MaxMultiLabelFbetaScore
 
 import ml_models
 import sewer_models
@@ -71,6 +71,8 @@ class MultiLabelModel(pl.LightningModule):
         self.accuracy = MultilabelAccuracy(num_labels=self.num_classes, average="macro")
         self.f1 = MultilabelF1Score(num_labels=self.num_classes, average="macro")
         self.f2 = MultilabelFBetaScore(num_labels=self.num_classes, beta=2., average="macro")
+        self.max_f1 = MaxMultiLabelFbetaScore(num_labels=self.num_classes, beta=1.)
+        self.max_f2 = MaxMultiLabelFbetaScore(num_labels=self.num_classes, beta=2.)
         self.ap = CustomMultiLabelAveragePrecision(num_labels=self.num_classes)
 
         if callable(getattr(self.criterion, "set_device", None)):
@@ -127,6 +129,8 @@ class MultiLabelModel(pl.LightningModule):
         
         self.f1.update(logits, y)
         self.f2.update(logits, y)
+        self.max_f1.update(logits, y)
+        self.max_f2.update(logits, y)
         self.ap.update(logits, y)
         
         self.log(
@@ -162,6 +166,10 @@ class MultiLabelModel(pl.LightningModule):
         self.f1.reset()
         self.log("val_f2", self.f2.compute(), on_step=False, on_epoch=True, prog_bar=True)
         self.f2.reset()
+        self.log("val_max_f1", self.max_f1.compute(), on_step=False, on_epoch=True, prog_bar=True)
+        self.max_f1.reset()
+        self.log("val_max_f2", self.max_f2.compute(), on_step=False, on_epoch=True, prog_bar=True)
+        self.max_f2.reset()
     
     def test_step(self, batch, batch_idx):
         x, y, _ = batch
