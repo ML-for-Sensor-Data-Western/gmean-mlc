@@ -100,25 +100,11 @@ class MultiLabelModel(pl.LightningModule):
         loss = self.criterion_no_weight(y_hat, y)
         return loss
     
-    def multiclass_accuracy(self, y_hat, y):
-        y = y.int()
-        return self.accuracy(y_hat, y)
-    
-    def multiclass_f1(self, y_hat, y):
-        y = y.int()
-        return self.f1(y_hat, y)
-    
-    def multiclass_f2(self, y_hat, y):
-        y = y.int()
-        return self.f2(y_hat, y)
-    
     def training_step(self, batch, batch_idx):
         x, y, _ = batch
         logits_before_bias, logits = self(x)
 
         loss = self.loss(logits_before_bias, logits, y)
-        
-        accuracy = self.multiclass_accuracy(logits, y)
         
         self.log(
             "train_loss",
@@ -128,13 +114,6 @@ class MultiLabelModel(pl.LightningModule):
             prog_bar=True,
             batch_size=self.batch_size,
         )
-        self.log(
-            "train_acc", 
-            accuracy, 
-            on_step=False, 
-            on_epoch=True, 
-            prog_bar=True,
-            batch_size=self.batch_size,)
         
         return loss
 
@@ -143,11 +122,12 @@ class MultiLabelModel(pl.LightningModule):
         logits_before_bias, logits = self(x)
         loss = self.loss(logits_before_bias, logits, y)
         
-        accuracy = self.multiclass_accuracy(logits, y)
-        f1 = self.multiclass_f1(logits, y)
-        f2 = self.multiclass_f2(logits, y)
-        self.ap.update(logits, y)
+        accuracy = self.accuracy(logits, y)
         bce_loss_wo_weight = self.bce_loss_wo_weight(logits, y)
+        
+        self.f1.update(logits, y)
+        self.f2.update(logits, y)
+        self.ap.update(logits, y)
         
         self.log(
             "val_loss",
@@ -166,22 +146,6 @@ class MultiLabelModel(pl.LightningModule):
             batch_size=self.batch_size,
         )
         self.log(
-            "val_f1",
-            f1,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            batch_size=self.batch_size,
-        )
-        self.log(
-            "val_f2",
-            f2,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            batch_size=self.batch_size
-        )
-        self.log(
             "val_bce_loss_wo_weight",
             bce_loss_wo_weight,
             on_step=False,
@@ -194,20 +158,16 @@ class MultiLabelModel(pl.LightningModule):
     def on_validation_epoch_end(self) -> None:
         self.log("val_ap", self.ap.compute(), on_step=False, on_epoch=True, prog_bar=True)
         self.ap.reset()    
+        self.log("val_f1", self.f1.compute(), on_step=False, on_epoch=True, prog_bar=True)
+        self.f1.reset()
+        self.log("val_f2", self.f2.compute(), on_step=False, on_epoch=True, prog_bar=True)
+        self.f2.reset()
     
     def test_step(self, batch, batch_idx):
         x, y, _ = batch
         logits_before_bias, logits = self(x)
         loss = self.loss(logits_before_bias, logits, y)
-        accuracy = self.multiclass_accuracy(logits, y)
-        f1 = self.multiclass_f1(logits, y)
-        f2 = self.multiclass_f2(logits, y)
-        ap = self.multiclass_ap(logits, y)
         self.log("test_loss", loss)
-        self.log("test_acc", accuracy)
-        self.log("test_f1", f1)
-        self.log("test_f2", f2)
-        self.log("test_ap", ap)
         return loss
 
     def configure_optimizers(self):
