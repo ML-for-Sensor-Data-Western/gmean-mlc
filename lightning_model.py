@@ -2,7 +2,6 @@ import pytorch_lightning as pl
 import torch
 from torchvision import models as torch_models
 
-from torchmetrics.classification import MultilabelAccuracy, MultilabelF1Score, MultilabelFBetaScore
 from eval_metrics import CustomMultiLabelAveragePrecision, MaxMultiLabelFbetaScore
 
 import ml_models
@@ -67,10 +66,6 @@ class MultiLabelModel(pl.LightningModule):
         self.biases = torch.nn.Parameter(torch.zeros(1, 17), requires_grad=True)
 
         self.criterion = criterion
-        self.criterion_no_weight = torch.nn.BCEWithLogitsLoss()
-        self.accuracy = MultilabelAccuracy(num_labels=self.num_classes, average="macro")
-        self.f1 = MultilabelF1Score(num_labels=self.num_classes, average="macro")
-        self.f2 = MultilabelFBetaScore(num_labels=self.num_classes, beta=2., average="macro")
         self.max_f1 = MaxMultiLabelFbetaScore(num_labels=self.num_classes, beta=1.)
         self.max_f2 = MaxMultiLabelFbetaScore(num_labels=self.num_classes, beta=2.)
         self.ap = CustomMultiLabelAveragePrecision(num_labels=self.num_classes)
@@ -97,11 +92,6 @@ class MultiLabelModel(pl.LightningModule):
 
         return loss
     
-    def bce_loss_wo_weight(self, y_hat, y):
-        y = y.float()
-        loss = self.criterion_no_weight(y_hat, y)
-        return loss
-    
     def training_step(self, batch, batch_idx):
         x, y, _ = batch
         logits_before_bias, logits = self(x)
@@ -124,11 +114,6 @@ class MultiLabelModel(pl.LightningModule):
         logits_before_bias, logits = self(x)
         loss = self.loss(logits_before_bias, logits, y)
         
-        accuracy = self.accuracy(logits, y)
-        bce_loss_wo_weight = self.bce_loss_wo_weight(logits, y)
-        
-        self.f1.update(logits, y)
-        self.f2.update(logits, y)
         self.max_f1.update(logits, y)
         self.max_f2.update(logits, y)
         self.ap.update(logits, y)
@@ -141,31 +126,11 @@ class MultiLabelModel(pl.LightningModule):
             prog_bar=True,
             batch_size=self.batch_size,
         )
-        self.log(
-            "val_acc",
-            accuracy,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            batch_size=self.batch_size,
-        )
-        self.log(
-            "val_bce_loss_wo_weight",
-            bce_loss_wo_weight,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            batch_size=self.batch_size,
-        )
         return loss
     
     def on_validation_epoch_end(self) -> None:
         self.log("val_ap", self.ap.compute(), on_step=False, on_epoch=True, prog_bar=True)
         self.ap.reset()    
-        self.log("val_f1", self.f1.compute(), on_step=False, on_epoch=True, prog_bar=True)
-        self.f1.reset()
-        self.log("val_f2", self.f2.compute(), on_step=False, on_epoch=True, prog_bar=True)
-        self.f2.reset()
         self.log("val_max_f1", self.max_f1.compute(), on_step=False, on_epoch=True, prog_bar=True)
         self.max_f1.reset()
         self.log("val_max_f2", self.max_f2.compute(), on_step=False, on_epoch=True, prog_bar=True)
