@@ -29,13 +29,18 @@ class CustomLogger(TensorBoardLogger):
 
 class CustomLoss(torch.nn.Module):
     def __init__(
-        self, pos_weight: Optional[torch.Tensor] = None, binary_loss_weight: float = 1.0
+        self, 
+        pos_weight: Optional[torch.Tensor] = None, 
+        pos_weight_defect: Optional[torch.Tensor] = None, 
+        binary_loss_weight: float = 1.0
     ):
         super().__init__()
         self.bce_with_weights = torch.nn.BCEWithLogitsLoss(
             pos_weight=pos_weight, reduction="none"
         )
-        self.bce = torch.nn.BCEWithLogitsLoss(reduction="none")
+        self.bce = torch.nn.BCEWithLogitsLoss(
+            pos_weight=pos_weight_defect, reduction="none"
+        )
         self.binary_loss_weight = binary_loss_weight
 
     def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -128,7 +133,11 @@ def main(args):
     dm.setup("fit")
 
     # Init model
-    criterion = CustomLoss(pos_weight=dm.class_weights, binary_loss_weight=args.defect_loss_weight)
+    criterion = CustomLoss(
+        pos_weight=dm.class_weights, 
+        pos_weight_defect=dm.defect_weight, 
+        binary_loss_weight=args.defect_loss_weight
+    )
 
     light_model = MultiLabelModel(
         num_classes=dm.num_classes,
