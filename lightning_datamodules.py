@@ -58,6 +58,7 @@ class MultiLabelDataModule(pl.LightningDataModule):
 
         self.num_classes = self.train_dataset.num_classes
         self.class_weights = self.train_dataset.class_weights
+        self.defect_weight = self.train_dataset.defect_weight
         self.LabelNames = self.train_dataset.LabelNames
 
     # return the dataloader for each split
