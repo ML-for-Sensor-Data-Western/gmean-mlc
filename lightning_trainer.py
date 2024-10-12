@@ -38,8 +38,8 @@ class CustomLoss(torch.nn.Module):
         self.bce = torch.nn.BCEWithLogitsLoss(reduction="none")
         self.binary_loss_weight = binary_loss_weight
 
-    def forward(self, logits_before_bias: torch.Tensor, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        binary_input = torch.mean(logits_before_bias, dim=1, keepdim=True)
+    def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        binary_input = torch.mean(logits, dim=1, keepdim=True)
         binary_target = torch.sum(target, 1, True).clamp(0, 1)  # (batch_size, 1) 0 or 1
 
         normal_loss = self.bce_with_weights(logits, target)  # (batch_size, num_classes)
