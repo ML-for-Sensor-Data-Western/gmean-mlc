@@ -157,49 +157,39 @@ def main(args):
         args.log_save_dir, args.model, prefix + "version_" + str(args.log_version)
     )
 
-    checkpoint_callback = ModelCheckpoint(
-        dirpath=logger_path,
-        filename="{epoch:02d}-{val_acc:.2f}",
-        save_top_k=1,
-        save_last=True,
-        verbose=False,
-        monitor="val_acc",
-        mode="max",
-    )
-
-    checkpoint_callback_f1 = ModelCheckpoint(
-        dirpath=logger_path,
-        filename="{epoch:02d}-{val_f1:.2f}",
-        save_top_k=1,
-        save_last=False,
-        verbose=False,
-        monitor="val_f1",
-        mode="max",
-    )
-
-    checkpoint_callback_f2 = ModelCheckpoint(
-        dirpath=logger_path,
-        filename="{epoch:02d}-{val_f2:.2f}",
-        save_top_k=1,
-        save_last=False,
-        verbose=False,
-        monitor="val_f2",
-        mode="max",
-    )
-    
     checkpoint_callback_ap = ModelCheckpoint(
         dirpath=logger_path,
         filename="{epoch:02d}-{val_ap:.2f}",
         save_top_k=1,
-        save_last=False,
+        save_last=True,
         verbose=False,
         monitor="val_ap",
+        mode="max",
+    )
+    
+    checkpoint_callback_max_f1 = ModelCheckpoint(
+        dirpath=logger_path,
+        filename="{epoch:02d}-{val_max_f1:.2f}",
+        save_top_k=1,
+        save_last=False,
+        verbose=False,
+        monitor="val_max_f1",
+        mode="max",
+    )
+    
+    checkpoint_callback_max_f2 = ModelCheckpoint(
+        dirpath=logger_path,
+        filename="{epoch:02d}-{val_max_f2:.2f}",
+        save_top_k=1,
+        save_last=False,
+        verbose=False,
+        monitor="val_max_f2",
         mode="max",
     )
 
     lr_monitor = LearningRateMonitor(logging_interval="step")
 
-    early_stopper = EarlyStopping(monitor="val_ap", mode="max", patience=20)
+    # early_stopper = EarlyStopping(monitor="val_ap", mode="max", patience=20)
 
     trainer = pl.Trainer(
         devices=args.gpus,
@@ -209,12 +199,11 @@ def main(args):
         benchmark=True,
         logger=logger,
         callbacks=[
-            checkpoint_callback,
-            checkpoint_callback_f1,
-            checkpoint_callback_f2,
             checkpoint_callback_ap,
+            checkpoint_callback_max_f1,
+            checkpoint_callback_max_f2,
             lr_monitor,
-            early_stopper,
+            # early_stopper,
         ],
     )
 
