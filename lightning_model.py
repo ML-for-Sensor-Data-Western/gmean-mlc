@@ -63,7 +63,6 @@ class MultiLabelModel(pl.LightningModule):
                 "Got model {}, but no such model is in this codebase".format(model)
             )
             
-        self.biases = torch.nn.Parameter(torch.zeros(1, 17), requires_grad=True)
 
         self.criterion = criterion
         self.max_f1 = MaxMultiLabelFbetaScore(num_labels=self.num_classes, beta=1.)
@@ -82,21 +81,20 @@ class MultiLabelModel(pl.LightningModule):
         self.batch_size = batch_size
 
     def forward(self, x):
-        logits_before_bias = self.model(x)
-        logits = logits_before_bias + self.biases
-        return logits_before_bias, logits
-
-    def loss(self, logits_before_bias, logits, y):
+        logits = self.model(x)
+        return logits
+    
+    def loss(self, logits, y):
         y = y.float()
-        loss = self.criterion(logits_before_bias, logits, y)
+        loss = self.criterion(logits, y)
 
         return loss
     
     def training_step(self, batch, batch_idx):
         x, y, _ = batch
-        logits_before_bias, logits = self(x)
-
-        loss = self.loss(logits_before_bias, logits, y)
+        logits = self(x)
+        
+        loss = self.loss(logits, y)
         
         self.log(
             "train_loss",
@@ -111,8 +109,9 @@ class MultiLabelModel(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y, _ = batch
-        logits_before_bias, logits = self(x)
-        loss = self.loss(logits_before_bias, logits, y)
+        logits = self(x)
+        
+        loss = self.loss(logits, y)
         
         self.max_f1.update(logits, y)
         self.max_f2.update(logits, y)
@@ -138,8 +137,8 @@ class MultiLabelModel(pl.LightningModule):
     
     def test_step(self, batch, batch_idx):
         x, y, _ = batch
-        logits_before_bias, logits = self(x)
-        loss = self.loss(logits_before_bias, logits, y)
+        logits = self(x)
+        loss = self.loss(logits, y)
         self.log("test_loss", loss)
         return loss
 

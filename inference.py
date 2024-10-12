@@ -41,7 +41,7 @@ def evaluate(dataloader, model, device):
 
             images = images.to(device)
 
-            _, output = model(images)            
+            output = model(images)            
 
             sigmoidOutput = sigmoid(output).detach().cpu().numpy()
 
@@ -76,13 +76,6 @@ def load_model(model_path, best_weights=False):
     # Load best checkpoint
     best_model = model_last_ckpt
     best_model_state_dict = best_model["state_dict"]
-    
-    # delete the "criterion" key from the state_dict
-    for k,v in best_model_state_dict.items():
-        if "criterion" in k:
-            del best_model_state_dict[k]
-        if "biases" in k:
-            print(f"Biases in last layer: {v}")
 
     return best_model_state_dict, model_name, num_classes, training_mode, br_defect
 
@@ -130,9 +123,8 @@ def run_inference(args):
     dataset = MultiLabelDatasetInference(ann_root, data_root, split=split, transform=eval_transform, onlyDefects=False)
     dataloader = DataLoader(dataset, batch_size=args["batch_size"], num_workers = args["workers"], pin_memory=True)
 
-    if training_mode in ["e2e", "defect"]:
-        labelNames = dataset.LabelNames
-    elif training_mode == "binary":
+    labelNames = dataset.LabelNames
+    if training_mode == "binary":
         labelNames = ["Defect"]
     elif training_mode == "binaryrelevance":
         labelNames = [br_defect]
