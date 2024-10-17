@@ -29,30 +29,40 @@ class CustomLogger(TensorBoardLogger):
 
 class CustomLoss(torch.nn.Module):
     def __init__(
-        self, 
-        pos_weight: Optional[torch.Tensor] = None, 
-        pos_weight_defect: Optional[torch.Tensor] = None, 
-        binary_loss_weight: float = 1.0
+        self,
+        pos_weight_defect_type: Optional[torch.Tensor] = None,
+        pos_weight_defect: Optional[torch.Tensor] = None,
+        binary_loss_weight: float = 1.0,
     ):
         super().__init__()
-        self.bce_with_weights = torch.nn.BCEWithLogitsLoss(
-            pos_weight=pos_weight, reduction="none"
+        self.bce_defect_types = torch.nn.BCEWithLogitsLoss(
+            pos_weight=pos_weight_defect_type, reduction="none"
         )
-        self.bce = torch.nn.BCEWithLogitsLoss(
+        self.bce_defect = torch.nn.BCEWithLogitsLoss(
             pos_weight=pos_weight_defect, reduction="none"
         )
         self.binary_loss_weight = binary_loss_weight
 
     def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        binary_input = torch.mean(logits, dim=1, keepdim=True)
-        binary_target = torch.sum(target, 1, True).clamp(0, 1)  # (batch_size, 1) 0 or 1
+        defect_target = torch.sum(target, 1, True).clamp(0, 1)  # (batch_size, 1) 0 or 1
 
-        normal_loss = self.bce_with_weights(logits, target)  # (batch_size, num_classes)
-        binary_loss = self.bce(binary_input, binary_target)  # (batch_size, 1)
+        # copy target to a new tensor
+        defect_logit_weights = target.clone()
+        # set all columns to 1 if the column is normal (no defect)
+        defect_logit_weights[defect_target.expand(-1, target.shape[1]) == 0] = 1
+
+        defect_logits = torch.sum(
+            logits * defect_logit_weights, dim=1, keepdim=True
+        ) / torch.sum(defect_logit_weights, dim=1, keepdim=True)
+
+        defect_type_loss = self.bce_defect_types(
+            logits, target
+        )  # (batch_size, num_classes)
+        defect_loss = self.bce_defect(defect_logits, defect_target)  # (batch_size, 1)
 
         final_loss = torch.mean(
-            torch.mean(normal_loss, 1, keepdim=True)
-            + self.binary_loss_weight * binary_loss
+            torch.mean(defect_type_loss, 1, keepdim=True)
+            + self.binary_loss_weight * defect_loss
         )
 
         return final_loss
@@ -134,9 +144,9 @@ def main(args):
 
     # Init model
     criterion = CustomLoss(
-        pos_weight=dm.class_weights, 
-        pos_weight_defect=dm.defect_weight, 
-        binary_loss_weight=args.defect_loss_weight
+        pos_weight_defect_type=dm.class_weights,
+        pos_weight_defect=dm.defect_weight,
+        binary_loss_weight=args.defect_loss_weight,
     )
 
     light_model = MultiLabelModel(
@@ -175,7 +185,7 @@ def main(args):
         monitor="val_ap",
         mode="max",
     )
-    
+
     checkpoint_callback_max_f1 = ModelCheckpoint(
         dirpath=logger_path,
         filename="{epoch:02d}-{val_max_f1:.2f}",
@@ -185,7 +195,7 @@ def main(args):
         monitor="val_max_f1",
         mode="max",
     )
-    
+
     checkpoint_callback_max_f2 = ModelCheckpoint(
         dirpath=logger_path,
         filename="{epoch:02d}-{val_max_f2:.2f}",
