@@ -76,6 +76,11 @@ def load_model(model_path, best_weights=False):
     # Load best checkpoint
     best_model = model_last_ckpt
     best_model_state_dict = best_model["state_dict"]
+    
+    if "biases" in best_model_state_dict.keys():
+        best_model_state_dict.pop("biases")
+    if "criterion.bce_with_weights.pos_weight" in best_model_state_dict.keys():
+        best_model_state_dict.pop("criterion.bce_with_weights.pos_weight")
 
     return best_model_state_dict, model_name, num_classes, training_mode, br_defect
 
