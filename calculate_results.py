@@ -118,10 +118,11 @@ def calcualte_results(scores, targets, score_file, args):
         json.dump(
             {
                 "Highlights": {
-                    "CIW_F2": main_metrics["CIW_F2"],
-                    "NORMAL_F1": meta_metrics["NORMAL_F1"],
-                    "MACRO_F2": main_metrics["MACRO_F2"],
                     "MACRO_F1": main_metrics["MACRO_F1"],
+                    "MACRO_F2": main_metrics["MACRO_F2"],
+                    "CIW_F2": main_metrics["CIW_F2"],
+                    "MAP": main_metrics["mAP"],
+                    "NORMAL_F1": meta_metrics["NORMAL_F1"],
                     "DEFECT_F1": meta_metrics["DEFECT_F1"],
                 },
                 "Main": main_metrics,
