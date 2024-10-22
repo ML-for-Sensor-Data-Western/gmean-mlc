@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Tuple, List, Dict
 
 # False Positives = n_p - n_tp
 # False Negatives = n_g - n_tp
@@ -6,7 +7,9 @@ import numpy as np
 # True Negatives = n_examples - n_p + (n_g - n_tp)
 
 
-def get_class_counts(scores, targets, threshold: float | np.ndarray):
+def get_class_counts(
+    scores: np.ndarray, targets: np.ndarray, threshold: float | np.ndarray
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Calculate the class counts for binary classification.
 
@@ -21,42 +24,81 @@ def get_class_counts(scores, targets, threshold: float | np.ndarray):
     n_g (np.array): The total number of ground truth occurrences for each class.
     """
     _, n_class = scores.shape
-    
+
     if isinstance(threshold, float):
         threshold = np.full(n_class, threshold)
     else:
         assert (
             len(threshold) == n_class
         ), "Thresholds must be the same size as the number of classes"
-    
+
     n_g = np.sum(targets, axis=0)
     n_p = np.sum(scores >= threshold, axis=0)
-    n_tp = np.sum((scores >= threshold) * targets, axis=0)    
-    
+    n_tp = np.sum((scores >= threshold) * targets, axis=0)
+
     # If Np is 0 for any class, set to 1 to avoid division with 0
     n_p[n_p == 0] = 1
 
     return n_tp, n_p, n_g
 
 
-def get_mean_average_precision(scores, targets, max_k=None):
+def get_mean_average_precision(
+    scores: np.ndarray, targets: np.ndarray, max_k=None
+) -> float:
+    """
+    Calculate the mean average precision metric.
+
+    Args:
+        scores (np.ndarray): Array of predicted scores with shape (n_samples, n_classes).
+        targets (np.ndarray): Array of target labels with shape (n_samples, n_classes).
+        max_k (int, optional): Maximum number of classes to consider. Defaults to None.
+
+    Returns:
+        float: Mean average precision metric.
+
+    """
     _, n_class = scores.shape
-    
+
     # Array to hold the average precision metric.
     ap = np.zeros(n_class)
-    
+
     for k in range(n_class):
         scores_k = scores[:, k]
         targets_k = targets[:, k]
         # Necessary if using MultiLabelSoftMarginLoss, instead of BCEWithLogitsLoss
         targets_k[targets_k == -1] = 0
-        
+
         ap[k] = get_average_precision(scores_k, targets_k)
-    
+
     return np.mean(ap)
 
 
-def get_defect_normal_counts(scores, targets, threshold):
+def get_defect_normal_counts(
+    scores: np.ndarray, targets: np.ndarray, threshold: float | np.ndarray
+) -> Tuple[int, int, int, int, int, int]:
+    """
+    Calculates the counts of defect and normal samples based on scores and targets.
+
+    Args:
+        scores (np.ndarray): Array of scores.
+        targets (np.ndarray): Array of targets.
+        threshold (float|np.ndarray): Threshold value(s) for classification.
+
+    Returns:
+        Tuple[int, int, int, int, int, int]: A tuple containing the counts of true positives,
+        predicted positives, and ground truth positives for defect samples, and the counts of
+        true positives, predicted positives, and ground truth positives for normal samples.
+    """
+
+    _, n_class = scores.shape
+
+    if isinstance(threshold, float):
+        threshold = np.full(n_class, threshold)
+    else:
+        assert (
+            len(threshold) == n_class
+        ), "Thresholds must be the same size as the number of classes"
+
     scores_defect = np.sum(scores >= threshold, axis=1)
     scores_defect[scores_defect > 0] = 1
     scores_normal = np.abs(scores_defect - 1)
