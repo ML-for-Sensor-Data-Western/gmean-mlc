@@ -6,33 +6,54 @@ import numpy as np
 # True Negatives = n_examples - n_p + (n_g - n_tp)
 
 
-def get_class_counts(scores, targets, threshold):
+def get_class_counts(scores, targets, threshold: float | np.ndarray):
+    """
+    Calculate the class counts for binary classification.
+
+    Parameters:
+    scores (np.array): The predicted scores for each class.
+    targets (np.array): The ground truth labels for each class.
+    threshold (float or np.array): Common or class-wise threshold(s)
+
+    Returns:
+    n_tp (np.array): The number of true positives for each class.
+    n_p (np.array): The total number of positives for each class.
+    n_g (np.array): The total number of ground truth occurrences for each class.
+    """
     _, n_class = scores.shape
+    
+    if isinstance(threshold, float):
+        threshold = np.full(n_class, threshold)
+    else:
+        assert (
+            len(threshold) == n_class
+        ), "Thresholds must be the same size as the number of classes"
+    
+    n_g = np.sum(targets, axis=0)
+    n_p = np.sum(scores >= threshold, axis=0)
+    n_tp = np.sum((scores >= threshold) * targets, axis=0)    
+    
+    # If Np is 0 for any class, set to 1 to avoid division with 0
+    n_p[n_p == 0] = 1
 
-    # Arrays to hold binary classification information, size n_class +1 to also hold the implicit normal class
-    n_tp = np.zeros(n_class)  # True positives
-    n_p = np.zeros(n_class)  # Total Positives
-    n_g = np.zeros(n_class)  # Total number of Ground Truth occurences
+    return n_tp, n_p, n_g
 
+
+def get_mean_average_precision(scores, targets, max_k=None):
+    _, n_class = scores.shape
+    
     # Array to hold the average precision metric.
     ap = np.zeros(n_class)
-
+    
     for k in range(n_class):
         scores_k = scores[:, k]
         targets_k = targets[:, k]
         # Necessary if using MultiLabelSoftMarginLoss, instead of BCEWithLogitsLoss
         targets_k[targets_k == -1] = 0
-
-        n_g[k] = np.sum(targets_k == 1)
-        n_p[k] = np.sum(scores_k >= threshold)
-        n_tp[k] = np.sum(targets_k * (scores_k >= threshold))
-
+        
         ap[k] = get_average_precision(scores_k, targets_k)
-
-    # If Np is 0 for any class, set to 1 to avoid division with 0
-    n_p[n_p == 0] = 1
-
-    return n_tp, n_p, n_g, ap
+    
+    return np.mean(ap)
 
 
 def get_defect_normal_counts(scores, targets, threshold):
@@ -142,10 +163,6 @@ def get_class_weighted_f2(class_f2, weights):
     return ciw_f2
 
 
-def get_mean_average_precision(ap):
-    return np.mean(ap)
-
-
 def get_exact_match_accuracy(scores, targets, threshold=0.5):
     n_examples, n_class = scores.shape
 
@@ -167,7 +184,7 @@ def evaluation(scores, targets, weights, threshold=0.5):
         scores.shape, targets.shape
     )
 
-    n_tp, n_p, n_g, ap = get_class_counts(scores, targets, threshold)
+    n_tp, n_p, n_g = get_class_counts(scores, targets, threshold)
 
     # Micro Precision, Recall and F1
     micro_p, micro_r, micro_f1, micro_f2 = get_micro_metrics(n_g, n_p, n_tp)
@@ -186,7 +203,7 @@ def evaluation(scores, targets, weights, threshold=0.5):
     EMAcc = get_exact_match_accuracy(scores, targets, threshold)
 
     # Mean Average Precision (mAP)
-    mAP = get_mean_average_precision(ap)
+    mAP = get_mean_average_precision(scores, targets)
 
     # Get values for "implict" normal and defect classes
     n_tp_defect, n_p_defect, n_g_defect, n_tp_normal, n_p_normal, n_g_normal = (
@@ -240,10 +257,9 @@ def evaluation(scores, targets, weights, threshold=0.5):
         "R_CLS": list(class_r),
         "F1_CLS": list(class_f1),
         "F2_CLS": list(class_f2),
-        "AP": list(ap),
-        "NP": list(n_p),
-        "NTP": list(n_tp),
-        "NG": list(n_g),
+        "NP": [int(p) for p in n_p],
+        "NTP": [int(tp) for tp in n_tp],
+        "NG": [int(g) for g in n_g],
     }
 
     return main_metrics, meta_metrics, class_metrics
