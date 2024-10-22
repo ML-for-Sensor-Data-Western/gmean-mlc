@@ -42,37 +42,6 @@ def get_class_counts(
     return n_tp, n_p, n_g
 
 
-def get_mean_average_precision(
-    scores: np.ndarray, targets: np.ndarray, max_k=None
-) -> float:
-    """
-    Calculate the mean average precision metric.
-
-    Args:
-        scores (np.ndarray): Array of predicted scores with shape (n_samples, n_classes).
-        targets (np.ndarray): Array of target labels with shape (n_samples, n_classes).
-        max_k (int, optional): Maximum number of classes to consider. Defaults to None.
-
-    Returns:
-        float: Mean average precision metric.
-
-    """
-    _, n_class = scores.shape
-
-    # Array to hold the average precision metric.
-    ap = np.zeros(n_class)
-
-    for k in range(n_class):
-        scores_k = scores[:, k]
-        targets_k = targets[:, k]
-        # Necessary if using MultiLabelSoftMarginLoss, instead of BCEWithLogitsLoss
-        targets_k[targets_k == -1] = 0
-
-        ap[k] = get_average_precision(scores_k, targets_k)
-
-    return np.mean(ap)
-
-
 def get_defect_normal_counts(
     scores: np.ndarray, targets: np.ndarray, threshold: float | np.ndarray
 ) -> Tuple[int, int, int, int, int, int]:
@@ -158,6 +127,38 @@ def get_average_precision(scores, target, max_k=None):
     return precision_at_i
 
 
+def get_mean_average_precision(
+    scores: np.ndarray, targets: np.ndarray, max_k=None
+) -> float:
+    """
+    Calculate the mean average precision metric.
+
+    Args:
+        scores (np.ndarray): Array of predicted scores with shape (n_samples, n_classes).
+        targets (np.ndarray): Array of target labels with shape (n_samples, n_classes).
+        max_k (int, optional): Maximum number of classes to consider. Defaults to None.
+
+    Returns:
+        float: Mean average precision metric.
+
+    """
+    _, n_class = scores.shape
+
+    # Array to hold the average precision metric.
+    ap = np.zeros(n_class)
+
+    for k in range(n_class):
+        scores_k = scores[:, k]
+        targets_k = targets[:, k]
+        # Necessary if using MultiLabelSoftMarginLoss, instead of BCEWithLogitsLoss
+        targets_k[targets_k == -1] = 0
+
+        ap[k] = get_average_precision(scores_k, targets_k)
+
+    return np.mean(ap)
+
+
+
 def get_scalar_metrics(n_tp: float, n_p: float, n_g: float):
     p = n_tp / n_p
     r = n_tp / n_g
@@ -205,20 +206,6 @@ def get_class_weighted_f2(class_f2, weights):
     return ciw_f2
 
 
-def get_exact_match_accuracy(scores, targets, threshold=0.5):
-    n_examples, n_class = scores.shape
-
-    binary_mat = np.equal(targets, (scores >= threshold))
-    row_sums = binary_mat.sum(axis=1)
-
-    perfect_match = np.zeros(row_sums.shape)
-    perfect_match[row_sums == n_class] = 1
-
-    EMAcc = np.sum(perfect_match) / n_examples
-
-    return EMAcc
-
-
 def evaluation(scores, targets, weights, threshold=0.5):
     assert (
         scores.shape == targets.shape
@@ -240,9 +227,6 @@ def evaluation(scores, targets, weights, threshold=0.5):
     )
 
     ciw_f2 = get_class_weighted_f2(class_f2, weights)
-
-    # Zero-One exact match accuracy
-    EMAcc = get_exact_match_accuracy(scores, targets, threshold)
 
     # Mean Average Precision (mAP)
     mAP = get_mean_average_precision(scores, targets)
@@ -271,7 +255,6 @@ def evaluation(scores, targets, weights, threshold=0.5):
         "MACRO_F1": macro_f1,
         "MACRO_F2": macro_f2,
         "CIW_F2": ciw_f2,
-        "EMAcc": EMAcc,
         "mAP": mAP,
     }
 
