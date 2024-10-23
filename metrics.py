@@ -336,8 +336,8 @@ def calculate_and_report_results(
 
     Returns:
         Tuple[Dict[str, float], Dict[str, float], Dict[str, List[float]]]: A tuple containing three dictionaries:
-            - main_metrics: main evaluation metrics such as micro precision, recall, F1, F2, macro precision, recall, F1, F2, CIW F2, and mAP.
-            - meta_metrics: defect/normal evaluation metrics such as defect precision, recall, F1, F2, normal precision, recall, F1, F2, defect/normal counts.
+            - main_metrics: such as micro precision, recall, F1, F2, macro precision, recall, F1, F2, CIW F2, and mAP.
+            - meta_metrics: defect/normal evaluation metrics such as defect/normal precision, recall, F, defect/normal counts.
             - class_metrics: class-wise metrics such as precision, recall, F1, F2, and class counts.
     """
     assert (
@@ -372,10 +372,10 @@ def calculate_and_report_results(
 
     # Defect Normal Metrics
     defect_p, defect_r, defect_f1, defect_f2 = calculate_prf(
-        n_tp_defect, n_p_defect, n_g_defect
+        n_g_defect, n_p_defect, n_tp_defect
     )
     normal_p, normal_r, normal_f1, normal_f2 = calculate_prf(
-        n_tp_normal, n_p_normal, n_g_normal
+        n_g_normal, n_p_normal, n_tp_normal
     )
 
     # Defect Type classification Metrics
