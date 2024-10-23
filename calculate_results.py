@@ -5,7 +5,7 @@ import os
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from metrics import evaluation
+from metrics import calculate_and_report_results
 
 LABEL_WEIGHT_DICT = {
     "RB": 1.00,
@@ -47,7 +47,7 @@ def calculate_results_thresholds(scores, targets, score_file, args):
         print("Calculating results with threshold: ", threshold)
         
         # Assuming evaluation function is defined elsewhere
-        main_metrics_t, meta_metrics_t, class_metrics_t = evaluation(
+        main_metrics_t, meta_metrics_t, class_metrics_t = calculate_and_report_results(
             scores, targets, LABEL_WEIGHTS, threshold=threshold
         )
         
@@ -104,7 +104,7 @@ def calculate_results_thresholds(scores, targets, score_file, args):
 
 
 def calcualte_results(scores, targets, score_file, args):
-    main_metrics, meta_metrics, class_metrics = evaluation(
+    main_metrics, meta_metrics, class_metrics = calculate_and_report_results(
         scores, targets, LABEL_WEIGHTS, threshold=args.threshold
     )
 
