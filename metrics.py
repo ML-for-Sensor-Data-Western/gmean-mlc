@@ -7,6 +7,41 @@ from typing import Tuple, List, Dict, Union
 # True Negatives = n_examples - n_p + (n_g - n_tp)
 
 
+def precision(
+    n_tp: Union[float, np.ndarray], n_p: Union[float, np.ndarray]
+) -> Union[float, np.ndarray]:
+    """Calculate the precision metric. supports float or np.ndarray"""
+    return n_tp / n_p + 1e-10
+
+
+def recall(
+    n_tp: Union[float, np.ndarray], n_g: Union[float, np.ndarray]
+) -> Union[float, np.ndarray]:
+    """Calculate the recall metric. supports float or np.ndarray"""
+    return n_tp / n_g + 1e-10
+
+
+def fbeta_from_pr(
+    p: Union[float, np.ndarray], r: Union[float, np.ndarray], beta: float = 1.0
+) -> Union[float, np.ndarray]:
+    """Calculate fbeta score from precision and recall. Supports float or np.ndarray"""
+    fbeta = (1 + beta**2) * p * r / (beta**2 * p + r)
+    return fbeta
+
+
+def fbeta_score(
+    n_g: Union[float, np.ndarray],
+    n_p: Union[float, np.ndarray],
+    n_tp: Union[float, np.ndarray],
+    beta: float = 1.0,
+) -> Union[float, np.ndarray]:
+    """Calculate fbeta score. supports float or np.ndarray"""
+    p = precision(n_tp, n_p)
+    r = recall(n_tp, n_g)
+    fbeta = fbeta_from_pr(p, r, beta)
+    return fbeta
+
+
 def calculate_class_wise_counts(
     scores: np.ndarray, targets: np.ndarray, threshold: Union[float, np.ndarray]
 ) -> Tuple[np.ndarray]:
@@ -175,26 +210,6 @@ def get_mean_average_precision(
     return np.mean(ap)
 
 
-def calculate_prf(n_tp: float, n_p: float, n_g: float):
-    """
-    Calculates precision, recall and F using three individual n_tp, n_p, n_g.
-
-    Args:
-        n_tp (float): Number of true positives.
-        n_p (float): Number of predicted positives.
-        n_g (float): Number of ground truth positives.
-
-    Returns:
-        tuple: A tuple containing the precision (p), recall (r), F1 score (f1), and F2 score (f2).
-    """
-    p = n_tp / n_p
-    r = n_tp / n_g
-    f1 = (2 * p * r) / (p + r)
-    f2 = (5 * p * r) / (4 * p + r)
-
-    return p, r, f1, f2
-
-
 def calculate_micro_prf(
     n_g: np.ndarray, n_p: np.ndarray, n_tp: np.ndarray
 ) -> Tuple[float]:
@@ -212,38 +227,37 @@ def calculate_micro_prf(
     - micro_f1 (float): Micro-averaged F1 score.
     - micro_f2 (float): Micro-averaged F2 score.
     """
-    micro_p = np.sum(n_tp) / np.sum(n_p)
-    micro_r = np.sum(n_tp) / np.sum(n_g)
-    micro_f1 = (2 * micro_p * micro_r) / (micro_p + micro_r)
-    micro_f2 = (5 * micro_p * micro_r) / (4 * micro_p + micro_r)
+    micro_p = precision(np.sum(n_tp), np.sum(n_p))
+    micro_r = recall(np.sum(n_tp), np.sum(n_g))
+    micro_f1 = fbeta_from_pr(micro_p, micro_r, 1)
+    micro_f2 = fbeta_from_pr(micro_p, micro_r, 2)
 
     return micro_p, micro_r, micro_f1, micro_f2
 
 
-def calculate_class_prf(n_g: np.ndarray, n_p: np.ndarray, n_tp: np.ndarray):
+def calculate_prf(
+    n_g: Union[float, np.ndarray],
+    n_p: Union[float, np.ndarray],
+    n_tp: Union[float, np.ndarray],
+):
     """
-    Calculate precision, recall, F1 score, and F2 score for each class.
+    Calculate precision, recall, F1 score, and F2 score from n_g, n_p, and n_tp.
+    Supports float or np.ndarray.
 
     Args:
-        n_g (np.ndarray): Array containing the number of ground truth samples for each class.
-        n_p (np.ndarray): Array containing the number of predicted samples for each class.
-        n_tp (np.ndarray): Array containing the number of true positive samples for each class.
+        n_g (Union[float, np.ndarray]): Number of ground truth samples.
+        n_p (Union[float, np.ndarray]): Number of predicted samples.
+        n_tp (Union[float, np.ndarray]): Number of true positive samples.
 
     Returns:
-        class_p (np.ndarray): Array containing the precision for each class.
-        class_r (np.ndarray): Array containing the recall for each class.
-        class_f1 (np.ndarray): Array containing the F1 score for each class.
-        class_f2 (np.ndarray): Array containing the F2 score for each class.
+        Tuple[float]: A tuple containing precision, recall, F1 score, and F2 score
     """
-    class_p = n_tp / n_p
-    class_r = n_tp / n_g
-    class_f1 = (2 * class_p * class_r) / (class_p + class_r)
-    class_f2 = (5 * class_p * class_r) / (4 * class_p + class_r)
+    p = precision(n_tp, n_p)
+    r = recall(n_tp, n_g)
+    f1 = fbeta_from_pr(p, r, 1)
+    f2 = fbeta_from_pr(p, r, 2)
 
-    class_f1[np.isnan(class_f1)] = 0
-    class_f2[np.isnan(class_f2)] = 0
-
-    return class_p, class_r, class_f1, class_f2
+    return p, r, f1, f2
 
 
 def calculate_macro_prf_from_class_prf(
@@ -261,13 +275,7 @@ def calculate_macro_prf_from_class_prf(
     Returns:
         Tuple[float]: A tuple containing macro precision, recall, F1-score, and F2-score.
     """
-    n_class = len(class_p)
-    macro_p = np.sum(class_p) / n_class
-    macro_r = np.sum(class_r) / n_class
-    macro_f1 = np.sum(class_f1) / n_class
-    macro_f2 = np.sum(class_f2) / n_class
-
-    return macro_p, macro_r, macro_f1, macro_f2
+    return class_p.mean(), class_r.mean(), class_f1.mean(), class_f2.mean()
 
 
 def calculate_macro_prf(
@@ -287,7 +295,7 @@ def calculate_macro_prf(
         macro_f1 (float): Macro-averaged F1 score.
         macro_f2 (float): Macro-averaged F2 score.
     """
-    class_p, class_r, class_f1, class_f2 = calculate_class_prf(n_g, n_p, n_tp)
+    class_p, class_r, class_f1, class_f2 = calculate_prf(n_g, n_p, n_tp)
     macro_p, macro_r, macro_f1, macro_f2 = calculate_macro_prf_from_class_prf(
         class_p, class_r, class_f1, class_f2
     )
@@ -344,7 +352,7 @@ def calculate_and_report_results(
     micro_p, micro_r, micro_f1, micro_f2 = calculate_micro_prf(n_g, n_p, n_tp)
 
     # Per-Class Precision, Recall and F
-    class_p, class_r, class_f1, class_f2 = calculate_class_prf(n_g, n_p, n_tp)
+    class_p, class_r, class_f1, class_f2 = calculate_prf(n_g, n_p, n_tp)
 
     # Macro Precision, Recall and F
     macro_p, macro_r, macro_f1, macro_f2 = calculate_macro_prf_from_class_prf(
