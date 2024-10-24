@@ -422,3 +422,35 @@ def calculate_and_report_results(
     }
 
     return main_metrics, meta_metrics, class_metrics
+
+
+def maximize_class_wise_f_score(
+    scores: np.ndarray, targets: np.ndarray, beta: int = 1
+) -> Tuple[float, np.ndarray]:
+    """
+    Calculate the maximum F-beta score for each class across all thresholds.
+
+    Args:
+        scores (np.ndarray): Array of predicted scores.
+        targets (np.ndarray): Array of target labels.
+        beta (int, optional): Weight of precision in harmonic mean. Defaults to 1.
+
+    Returns:
+        float: Maximum F-beta score across all classes.
+        np.ndarray: Array of thresholds that maximize the F-beta score for each class.
+    """
+    _, n_class = scores.shape
+
+    thresholds = np.array([t / 100 for t in range(5, 100, 5)], dtype=float)
+    f_per_class_per_t = np.zeros((len(thresholds), n_class))
+
+    for i, threshold in enumerate(thresholds):
+        n_tp, n_p, n_g = calculate_class_wise_counts(scores, targets, threshold)
+
+        fbeta = fbeta_score(n_g, n_p, n_tp, beta)
+        f_per_class_per_t[i] = fbeta
+
+    max_f_per_class = np.max(f_per_class_per_t, axis=0)
+    max_thresholds = thresholds[np.argmax(f_per_class_per_t, axis=0)]
+
+    return np.mean(max_f_per_class), max_thresholds
