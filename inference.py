@@ -92,7 +92,7 @@ def run_inference(args):
     model_path = args["model_path"]
     outputPath = args["results_output"]
     best_weights = args["best_weights"]
-    split = args["split"]
+    splits = ["Val", "Test"] if args["do_val_test"] else [args["split"]]
     
     if not os.path.isdir(outputPath):
         os.makedirs(outputPath)
@@ -115,6 +115,9 @@ def run_inference(args):
 
     lt_model.load_state_dict(updated_state_dict)
     
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    lt_model = lt_model.to(device)
+    
     # initialize dataloaders
     img_size = 299 if model_name in ["inception_v3", "chen2018_multilabel"] else 224
     
@@ -123,38 +126,32 @@ def run_inference(args):
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.523, 0.453, 0.345], std=[0.210, 0.199, 0.154])
         ])
-
+    
+    for split in splits:
+        dataset = MultiLabelDatasetInference(ann_root, data_root, split=split, transform=eval_transform, onlyDefects=False)
+        dataloader = DataLoader(dataset, batch_size=args["batch_size"], num_workers = args["workers"], pin_memory=True)
         
-    dataset = MultiLabelDatasetInference(ann_root, data_root, split=split, transform=eval_transform, onlyDefects=False)
-    dataloader = DataLoader(dataset, batch_size=args["batch_size"], num_workers = args["workers"], pin_memory=True)
+        labelNames = dataset.LabelNames
+        if training_mode == "binary":
+            labelNames = ["Defect"]
+        elif training_mode == "binaryrelevance":
+            labelNames = [br_defect]
 
-    labelNames = dataset.LabelNames
-    if training_mode == "binary":
-        labelNames = ["Defect"]
-    elif training_mode == "binaryrelevance":
-        labelNames = [br_defect]
+        # Validation results
+        print("VALIDATION")
+        sigmoid_predictions, val_imgPaths = evaluate(dataloader, lt_model, device)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        sigmoid_dict = {}
+        sigmoid_dict["Filename"] = val_imgPaths
+        for idx, header in enumerate(labelNames):
+            sigmoid_dict[header] = sigmoid_predictions[:,idx]
 
-    lt_model = lt_model.to(device)
-
-    # Validation results
-    print("VALIDATION")
-    sigmoid_predictions, val_imgPaths = evaluate(dataloader, lt_model, device)
-
-    sigmoid_dict = {}
-    sigmoid_dict["Filename"] = val_imgPaths
-    for idx, header in enumerate(labelNames):
-        sigmoid_dict[header] = sigmoid_predictions[:,idx]
-
-    sigmoid_df = pd.DataFrame(sigmoid_dict)
-    sigmoid_df.to_csv(os.path.join(outputPath, "{}_{}_{}_sigmoid.csv".format(model_version, training_mode, split.lower())), sep=",", index=False)
+        sigmoid_df = pd.DataFrame(sigmoid_dict)
+        sigmoid_df.to_csv(os.path.join(outputPath, "{}_{}_{}_sigmoid.csv".format(model_version, training_mode, split.lower())), sep=",", index=False)
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument('--conda_env', type=str, default='Pytorch-Lightning')
-    parser.add_argument('--notification_email', type=str, default='')
     parser.add_argument('--ann_root', type=str, default='./annotations')
     parser.add_argument('--data_root', type=str, default='./Data')
     parser.add_argument('--batch_size', type=int, default=512, help="Size of the batch per GPU")
@@ -163,8 +160,7 @@ if __name__ == "__main__":
     parser.add_argument("--best_weights", action="store_true", help="If true 'model_path' leads to a specific weight file. If False it leads to the output folder of lightning_trainer where the last.ckpt file is used to read the best model weights.")
     parser.add_argument("--results_output", type=str, default = "./results")
     parser.add_argument("--split", type=str, default = "Val", choices=["Train", "Val", "Test"])
-
-
+    parser.add_argument("--do_val_test", action="store_true", help="If true, inference on both val and test sets.")
 
     args = vars(parser.parse_args())
 
