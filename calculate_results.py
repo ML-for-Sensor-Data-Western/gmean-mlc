@@ -249,7 +249,7 @@ if __name__ == "__main__":
 
                 print("Calculating results for: ", score_file)
                 score_path = os.path.join(subdir, score_file)
-                scores = load_scores(LABELS, score_path)
+                scores = load_scores(score_path, LABELS)
 
                 if args.multi_threshold:
                     output_file = os.path.join(
