@@ -436,7 +436,7 @@ def calculate_all_metrics(
         "FNR": fnr,
         "FPR": fpr,
         "FPR_IN_DEFECT": fpr_in_defect,
-        "FPR__IN_NORMAL": fpr_in_normal,
+        "FPR_IN_NORMAL": fpr_in_normal,
         "MICRO_P": micro_p,
         "MICRO_R": micro_r,
         "MICRO_F1": micro_f1,
