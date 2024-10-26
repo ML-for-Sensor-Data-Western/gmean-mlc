@@ -77,10 +77,14 @@ def load_model(model_path, best_weights=False):
     best_model = model_last_ckpt
     best_model_state_dict = best_model["state_dict"]
     
-    if "biases" in best_model_state_dict.keys():
-        best_model_state_dict.pop("biases")
-    if "criterion.bce_with_weights.pos_weight" in best_model_state_dict.keys():
-        best_model_state_dict.pop("criterion.bce_with_weights.pos_weight")
+    keys_to_drop = ["biases", "criterion.bce_with_weights.pos_weight", "criterion.bce_defect_types.pos_weight", "criterion.bce_defect.pos_weight", "criterion.bce.pos_weight"]
+    for key in keys_to_drop:
+        if key in best_model_state_dict.keys():
+            best_model_state_dict.pop(key)
+    # if "biases" in best_model_state_dict.keys():
+    #     best_model_state_dict.pop("biases")
+    # if "criterion.bce_with_weights.pos_weight" in best_model_state_dict.keys():
+    #     best_model_state_dict.pop("criterion.bce_with_weights.pos_weight")
 
     return best_model_state_dict, model_name, num_classes, training_mode, br_defect
 
