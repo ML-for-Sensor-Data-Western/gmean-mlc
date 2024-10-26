@@ -1,10 +1,9 @@
 import numpy as np
-from typing import Tuple, List, Dict, Union
-
+from typing import Tuple, List, Dict, Union, Any
 # False Positives = n_p - n_tp
 # False Negatives = n_g - n_tp
 # True Positives = n_tp
-# True Negatives = n_examples - n_p + (n_g - n_tp)
+# True Negatives = n_examples - n_p - (n_g - n_tp)
 
 
 def precision(
@@ -18,7 +17,49 @@ def recall(
     n_tp: Union[float, np.ndarray], n_g: Union[float, np.ndarray]
 ) -> Union[float, np.ndarray]:
     """Calculate the recall metric. supports float or np.ndarray"""
-    return n_tp / n_g + 1e-10
+    return n_tp / n_g
+
+
+def false_negative_rate(n_tp: Union[float, np.ndarray], n_g: Union[float, np.ndarray]) -> float:
+    """Calculate False Negative Rate (FN/(TP+FN)) which is 1-Recall.
+    Return average FNR if input is np.ndarray"""
+    fnr = 1 - n_tp / n_g
+    if isinstance(fnr, np.ndarray):
+        fnr = np.mean(fnr)
+    return fnr
+
+
+def false_positive_rate(
+    scores: np.ndarray, targets: np.ndarray, threshold: Union[float, np.ndarray]
+) -> np.ndarray:
+    """False Positive Rate (FP/(TN+FP))
+    Return average FPR if input is np.ndarray"""
+    n_samples = scores.shape[0]
+    n_tp, n_p, n_g = calculate_class_wise_counts(scores, targets, threshold)
+    fpr = (n_p - n_tp) / (n_samples - n_g)
+    if isinstance(fpr, np.ndarray):
+        fpr = np.mean(fpr)
+    return fpr
+
+
+def fpr_in_defect_and_normal(
+    scores: np.ndarray, targets: np.ndarray, threshold: Union[float, np.ndarray]
+) -> Tuple[np.ndarray]:
+    """False Positive Rates within Normal Samples and Defect Samples"""
+    targets_defect = targets.copy()
+    targets_defect = np.sum(targets_defect, axis=1)
+    targets_defect[targets_defect > 0] = 1
+    targets_normal = 1 - targets_defect
+
+    defect_images_targets = targets[targets_defect == 1]
+    defect_images_scores = scores[targets_defect == 1]
+    normal_images_targets = targets[targets_normal == 1]
+    normal_images_scores = scores[targets_normal == 1]
+
+    fpr_in_defect = false_positive_rate(defect_images_scores, defect_images_targets, threshold)
+    fpr_in_normal = false_positive_rate(normal_images_scores, normal_images_targets, threshold)
+
+    return fpr_in_defect, fpr_in_normal
 
 
 def fbeta_from_pr(
@@ -71,7 +112,7 @@ def calculate_class_wise_counts(
     n_p = np.sum(scores >= threshold, axis=0)
     n_tp = np.sum((scores >= threshold) * targets, axis=0)
 
-    # If Np is 0 for any class, set to 1 to avoid division with 0
+    # If Np is 0 for any lass, set to 1 to avoid division with 0
     n_p[n_p == 0] = 1
 
     return n_tp, n_p, n_g
@@ -103,9 +144,9 @@ def calculate_defect_normal_counts(
             len(threshold) == n_class
         ), "Thresholds must be the same size as the number of classes"
 
-    scores_defect = np.sum(scores >= threshold, axis=1)
-    scores_defect[scores_defect > 0] = 1
-    scores_normal = np.abs(scores_defect - 1)
+    predict_defect = np.sum(scores >= threshold, axis=1)
+    predict_defect[predict_defect > 0] = 1
+    predict_normal = np.abs(predict_defect - 1)
 
     targets_defect = targets.copy()
     # Necessary if using MultiLabelSoftMarginLoss, instead of BCEWithLogitsLoss
@@ -115,12 +156,12 @@ def calculate_defect_normal_counts(
     targets_normal = np.abs(targets_defect - 1)
 
     n_g_defect = np.sum(targets_defect == 1)
-    n_p_defect = np.sum(scores_defect == 1)
-    n_tp_defect = np.sum(targets_defect * scores_defect)
+    n_p_defect = np.sum(predict_defect == 1)
+    n_tp_defect = np.sum(targets_defect * predict_defect)
 
     n_g_normal = np.sum(targets_normal == 1)
-    n_p_normal = np.sum(scores_normal == 1)
-    n_tp_normal = np.sum(targets_normal * scores_normal)
+    n_p_normal = np.sum(predict_normal == 1)
+    n_tp_normal = np.sum(targets_normal * predict_normal)
 
     return n_tp_defect, n_p_defect, n_g_defect, n_tp_normal, n_p_normal, n_g_normal
 
@@ -319,12 +360,12 @@ def calculate_ciw_f2_from_class_f2(class_f2: np.ndarray, weights: List[float]) -
     return ciw_f2
 
 
-def calculate_and_report_results(
+def calculate_all_metrics(
     scores: np.ndarray,
     targets: np.ndarray,
     class_weights: List[float],
     threshold: Union[float, np.ndarray] = 0.5,
-):
+) -> Tuple[Dict[str, Any]]:
     """
     Calculates and reports various evaluation metrics based on the input scores and targets.
 
@@ -347,6 +388,12 @@ def calculate_and_report_results(
     )
 
     n_tp, n_p, n_g = calculate_class_wise_counts(scores, targets, threshold)
+    
+    # False Negative Rates and False Negative Rate
+    fnr = false_negative_rate(n_tp, n_g)
+    # False Positive Rate and FPR for defect and normal portions
+    fpr = false_positive_rate(scores, targets, threshold)
+    fpr_in_defect, fpr_in_normal = fpr_in_defect_and_normal(scores, targets, threshold)
 
     # Micro Precision, Recall and F
     micro_p, micro_r, micro_f1, micro_f2 = calculate_micro_prf(n_g, n_p, n_tp)
@@ -380,16 +427,20 @@ def calculate_and_report_results(
 
     # Defect Type classification Metrics
     main_metrics = {
-        "MICRO_P": micro_p,
-        "MICRO_R": micro_r,
-        "MICRO_F1": micro_f1,
-        "MICRO_F2": micro_f2,
         "MACRO_P": macro_p,
         "MACRO_R": macro_r,
         "MACRO_F1": macro_f1,
         "MACRO_F2": macro_f2,
         "CIW_F2": ciw_f2,
         "mAP": mAP,
+        "FNR": fnr,
+        "FPR": fpr,
+        "FPR_IN_DEFECT": fpr_in_defect,
+        "FPR__IN_NORMAL": fpr_in_normal,
+        "MICRO_P": micro_p,
+        "MICRO_R": micro_r,
+        "MICRO_F1": micro_f1,
+        "MICRO_F2": micro_f2,
     }
 
     # Defect/Normal Metrics

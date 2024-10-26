@@ -6,7 +6,7 @@ import warnings
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from metrics import calculate_and_report_results, maximize_class_wise_f_score
+from metrics import calculate_all_metrics, maximize_class_wise_f_score
 
 LABEL_WEIGHT_DICT = {
     "RB": 1.00,
@@ -48,7 +48,7 @@ def calculate_results_thresholds(scores, targets, output_file):
         print("Calculating results with threshold: ", threshold)
 
         # Assuming evaluation function is defined elsewhere
-        main_metrics_t, meta_metrics_t, class_metrics_t = calculate_and_report_results(
+        main_metrics_t, meta_metrics_t, class_metrics_t = calculate_all_metrics(
             scores, targets, LABEL_WEIGHTS, threshold=threshold
         )
 
@@ -115,67 +115,20 @@ def find_best_val_thresholds_and_calculate_test_results(
     print("Max F{}: {}".format(args.f_beta, max_val_f))
     print("Max F{} Thresholds: {}".format(args.f_beta, max_val_t))
     
-    main_metrics, meta_metrics, class_metrics = calculate_and_report_results(
+    main_metrics, meta_metrics, class_metrics = calculate_all_metrics(
         test_scores, test_targets, LABEL_WEIGHTS, max_val_t
     )
     
-    with open(
-        output_file,
-        "w",
-        encoding="utf-8",
-    ) as fp:
-        json.dump(
-            {
-                "Highlights": {
-                    "MACRO_F1": main_metrics["MACRO_F1"],
-                    "MACRO_F2": main_metrics["MACRO_F2"],
-                    "CIW_F2": main_metrics["CIW_F2"],
-                    "MAP": main_metrics["mAP"],
-                    "NORMAL_F1": meta_metrics["NORMAL_F1"],
-                    "DEFECT_F1": meta_metrics["DEFECT_F1"],
-                    f"VAL_MAX_F{args.f_beta}": max_val_f,
-                    f"VAL_MAX_F{args.f_beta}_THRESHOLDS": list(max_val_t),
-                },
-                "Main": main_metrics,
-                "Meta": meta_metrics,
-                "Class": class_metrics,
-                "Labels": LABELS,
-                "LabelWeights": LABEL_WEIGHTS,
-            },
-            fp,
-            indent=4,
-        )
+    save_results_to_json(
+        main_metrics, meta_metrics, class_metrics, output_file, args, max_val_f, list(max_val_t)
+    )
 
 
 def calcualte_results(scores, targets, output_file, args):
-    main_metrics, meta_metrics, class_metrics = calculate_and_report_results(
+    main_metrics, meta_metrics, class_metrics = calculate_all_metrics(
         scores, targets, LABEL_WEIGHTS, threshold=args.threshold
     )
-
-    with open(
-        output_file,
-        "w",
-        encoding="utf-8",
-    ) as fp:
-        json.dump(
-            {
-                "Highlights": {
-                    "MACRO_F1": main_metrics["MACRO_F1"],
-                    "MACRO_F2": main_metrics["MACRO_F2"],
-                    "CIW_F2": main_metrics["CIW_F2"],
-                    "MAP": main_metrics["mAP"],
-                    "NORMAL_F1": meta_metrics["NORMAL_F1"],
-                    "DEFECT_F1": meta_metrics["DEFECT_F1"],
-                },
-                "Main": main_metrics,
-                "Meta": meta_metrics,
-                "Class": class_metrics,
-                "Labels": LABELS,
-                "LabelWeights": LABEL_WEIGHTS,
-            },
-            fp,
-            indent=4,
-        )
+    save_results_to_json(main_metrics, meta_metrics, class_metrics, output_file, args)
 
 
 def load_scores(score_path: str, labels: list[str]):
@@ -185,6 +138,39 @@ def load_scores(score_path: str, labels: list[str]):
     scores = scores_df[labels].values
     return scores
 
+
+def save_results_to_json(
+    main_metrics: dict, 
+    meta_metrics: dict, 
+    class_metrics: dict, 
+    output_file: str, 
+    args: argparse.Namespace,
+    max_val_f: float = None,
+    max_val_t: list = None,
+    ):
+    result_dict = {
+        "Highlights": {
+            "MACRO_F1": main_metrics["MACRO_F1"],
+            "MACRO_F2": main_metrics["MACRO_F2"],
+            "CIW_F2": main_metrics["CIW_F2"],
+            "MAP": main_metrics["mAP"],
+            "NORMAL_F1": meta_metrics["NORMAL_F1"],
+            "DEFECT_F1": meta_metrics["DEFECT_F1"],
+        },
+        "Main": main_metrics,
+        "Meta": meta_metrics,
+        "Class": class_metrics,
+        "Labels": LABELS,
+        "LabelWeights": LABEL_WEIGHTS,
+    }
+    
+    if args.max_fbeta:
+        result_dict["highlights"][f"VAL_MAX_F{args.f_beta}"] = max_val_f
+        result_dict["highlights"][f"VAL_MAX_F{args.f_beta}_THRESHOLDS"] = max_val_t
+
+    with open(output_file, "w", encoding="utf-8") as fp:
+        json.dump(result_dict, fp, indent=4)
+         
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -221,7 +207,7 @@ if __name__ == "__main__":
 
         output_file = os.path.join(
             args.score_path,
-            f"{args.test_score_filename[:-4]}_maxbeta_{args.f_beta}.json",
+            f"Test_{args.test_score_filename[:-4]}_maxbeta_{args.f_beta}.json",
         )
         find_best_val_thresholds_and_calculate_test_results(
             val_scores, test_scores, val_targets, test_targets, output_file, args
