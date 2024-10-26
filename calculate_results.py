@@ -165,8 +165,8 @@ def save_results_to_json(
     }
     
     if args.max_fbeta:
-        result_dict["highlights"][f"VAL_MAX_F{args.f_beta}"] = max_val_f
-        result_dict["highlights"][f"VAL_MAX_F{args.f_beta}_THRESHOLDS"] = max_val_t
+        result_dict["Highlights"][f"VAL_MAX_F{args.f_beta}"] = max_val_f
+        result_dict["Highlights"][f"VAL_MAX_F{args.f_beta}_THRESHOLDS"] = max_val_t
 
     with open(output_file, "w", encoding="utf-8") as fp:
         json.dump(result_dict, fp, indent=4)
