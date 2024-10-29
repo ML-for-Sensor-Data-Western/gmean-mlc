@@ -101,7 +101,8 @@ class MaxMultiLabelFbetaScore(Metric):
     
     @staticmethod
     def fbeta_score(n_g: torch.Tensor, n_p: torch.Tensor, n_tp: torch.Tensor, beta: float) -> torch.Tensor:
-        p = n_tp / n_p + 1e-7
-        r = n_tp / n_g + 1e-7
-        fbeta = (1 + beta ** 2) * p * r / (beta ** 2 * p + r)
+        p = n_tp / (n_p + 1e-7)
+        r = n_tp / (n_g + 1e-7)
+        fbeta = (1 + beta ** 2) * p * r / (beta ** 2 * p + r + 1e-7)
+        # print(p, r, fbeta)
         return fbeta

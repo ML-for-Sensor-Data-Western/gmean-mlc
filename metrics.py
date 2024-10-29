@@ -10,7 +10,7 @@ def precision(
     n_tp: Union[float, np.ndarray], n_p: Union[float, np.ndarray]
 ) -> Union[float, np.ndarray]:
     """Calculate the precision metric. supports float or np.ndarray"""
-    return n_tp / n_p + 1e-10
+    return n_tp / (n_p + 1e-7)
 
 
 def recall(
@@ -66,7 +66,7 @@ def fbeta_from_pr(
     p: Union[float, np.ndarray], r: Union[float, np.ndarray], beta: float = 1.0
 ) -> Union[float, np.ndarray]:
     """Calculate fbeta score from precision and recall. Supports float or np.ndarray"""
-    fbeta = (1 + beta**2) * p * r / (beta**2 * p + r)
+    fbeta = (1 + beta**2) * p * r / (beta**2 * p + r +  1e-7)
     return fbeta
 
 
