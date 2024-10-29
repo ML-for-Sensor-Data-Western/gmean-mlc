@@ -2,7 +2,6 @@ import os
 from argparse import ArgumentParser
 
 import pytorch_lightning as pl
-import torch
 from pytorch_lightning.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
@@ -17,6 +16,7 @@ from lightning_datamodules import (
     MultiLabelDataModule,
 )
 from lightning_model import MultiLabelModel
+from loss import HybridLoss
 from typing import Optional
 
 
@@ -25,136 +25,6 @@ class CustomLogger(TensorBoardLogger):
         if "epoch" in metrics:
             step = metrics["epoch"]
         super().log_metrics(metrics, step)
-
-
-"""positive nodes grouped and maxed for defects."""
-class CustomLoss(torch.nn.Module):
-    def __init__(
-        self,
-        pos_weight_defect_type: Optional[torch.Tensor] = None,
-        pos_weight_defect: Optional[torch.Tensor] = None,
-        binary_loss_weight: float = 1.0,
-    ):
-        super().__init__()
-        self.bce_defect_types = torch.nn.BCEWithLogitsLoss(
-            pos_weight=pos_weight_defect_type, reduction="none"
-        )
-        self.bce_defect = torch.nn.BCEWithLogitsLoss(
-            pos_weight=pos_weight_defect, reduction="none"
-        )
-        self.binary_loss_weight = binary_loss_weight
-
-    def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        defect_target = torch.sum(target, 1, True).clamp(0, 1)  # (batch_size, 1) 0 or 1
-
-        # copy target to a new tensor
-        defect_logit_weights = target.clone()
-        # set all columns to 1 if the column is normal (no defect)
-        defect_logit_weights[defect_target.expand(-1, target.shape[1]) == 0] = 1
-
-        defect_logits = torch.sum(
-            logits * defect_logit_weights, dim=1, keepdim=True
-        ) / torch.sum(defect_logit_weights, dim=1, keepdim=True)
-
-        defect_loss = self.bce_defect(defect_logits, defect_target)  # (batch_size, 1)
-
-        defect_type_loss = self.bce_defect_types(
-            logits, target
-        )  # (batch_size, num_classes)
-
-        final_loss = torch.mean(
-            torch.mean(defect_type_loss, 1, keepdim=True)
-            + self.binary_loss_weight * defect_loss
-        )
-
-        return final_loss
-
-
-""""Bicycle mode defect loss. Dynamic positive group and negative group"""
-# class CustomLoss(torch.nn.Module):
-#     def __init__(
-#         self,
-#         pos_weight_defect_type: Optional[torch.Tensor] = None,
-#         pos_weight_defect: Optional[torch.Tensor] = None,
-#         binary_loss_weight: float = 1.0,
-#     ):
-#         super().__init__()
-#         self.bce_defect_types = torch.nn.BCEWithLogitsLoss(
-#             pos_weight=pos_weight_defect_type, reduction="none"
-#         )
-#         self.bce_defect = torch.nn.BCEWithLogitsLoss(
-#             # pos_weight=pos_weight_defect, reduction="none"
-#             reduction="none"
-#         )
-#         self.binary_loss_weight = binary_loss_weight
-
-#     def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-#         defect_target = torch.sum(target, 1, True).clamp(0, 1)  # (batch_size, 1) 0 or 1
-
-#         # copy target to a new tensor
-#         defect_logit_weights = target.clone()
-
-#         defect_logits = torch.sum(
-#             logits * defect_logit_weights, dim=1, keepdim=True
-#         ) / (torch.sum(defect_logit_weights, dim=1, keepdim=True) + 1e-6)
-
-#         defect_loss = defect_target * self.bce_defect(
-#             defect_logits, torch.Tensor(defect_logits.size(0), 1).cuda().fill_(1.0)
-#         )  # (batch_size, 1)
-
-#         absent_defect_logit_weights = 1 - target.clone()
-
-#         absent_defect_logits = torch.sum(
-#             logits * absent_defect_logit_weights, dim=1, keepdim=True
-#         ) / (torch.sum(absent_defect_logit_weights, dim=1, keepdim=True) + 1e-6)
-
-#         absent_defect_loss = self.bce_defect(
-#             absent_defect_logits,
-#             torch.Tensor(absent_defect_logits.size(0), 1).cuda().fill_(0.0),
-#         )  # (batch_size, 1)
-
-#         defect_type_loss = self.bce_defect_types(
-#             logits, target
-#         )  # (batch_size, num_classes)
-
-#         final_loss = torch.mean(
-#             torch.mean(defect_type_loss, 1, keepdim=True)
-#             + self.binary_loss_weight * (defect_loss + absent_defect_loss)
-#         )
-
-#         return final_loss
-
-
-"""All nodes grouped and maxed for defects"""
-# class CustomLoss(torch.nn.Module):
-#     def __init__(
-#         self,
-#         pos_weight_defect_type: Optional[torch.Tensor] = None,
-#         pos_weight_defect: Optional[torch.Tensor] = None,
-#         binary_loss_weight: float = 1.0
-#     ):
-#         super().__init__()
-#         self.bce_with_weights = torch.nn.BCEWithLogitsLoss(
-#             pos_weight=pos_weight_defect_type, reduction="none"
-#         )
-#         self.bce = torch.nn.BCEWithLogitsLoss(
-#             pos_weight=pos_weight_defect, reduction="none"
-#         )
-#         self.binary_loss_weight = binary_loss_weight
-
-#     def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-#         binary_input = torch.mean(logits, dim=1, keepdim=True)
-#         binary_target = torch.sum(target, 1, True).clamp(0, 1)  # (batch_size, 1) 0 or 1
-
-#         normal_loss = self.bce_with_weights(logits, target)  # (batch_size, num_classes)
-#         binary_loss = self.bce(binary_input, binary_target)  # (batch_size, 1)
-
-#         final_loss = torch.mean(
-#             torch.mean(normal_loss, 1, keepdim=True)
-#             + self.binary_loss_weight * binary_loss
-#         )
-
-#         return final_loss
 
 
 def main(args):
@@ -232,10 +102,12 @@ def main(args):
     dm.setup("fit")
 
     # Init model
-    criterion = CustomLoss(
-        pos_weight_defect_type=dm.class_weights,
-        pos_weight_defect=dm.defect_weight,
-        binary_loss_weight=args.defect_loss_weight,
+    criterion = HybridLoss(
+        class_counts=dm.class_counts,
+        defect_count=dm.defect_count,
+        beta=args.beta,
+        meta_loss_weight=args.meta_loss_weight,
+        push_mode=args.meta_push_mode,
     )
 
     light_model = MultiLabelModel(
@@ -379,7 +251,14 @@ def run_cli():
     parser.add_argument(
         "--model", type=str, default="resnet18", choices=MultiLabelModel.MODEL_NAMES
     )
-    parser.add_argument("--defect_loss_weight", type=float, default=1.0)
+    parser.add_argument("--beta", type=float, default=0.9999)
+    parser.add_argument("--meta_loss_weight", type=float, default=1.0)
+    parser.add_argument(
+        "--meta_push_mode",
+        type=str,
+        default="positive_push",
+        choices=["positive_push", "all_push"],
+    )
     parser.add_argument("--learning_rate", type=float, default=1e-2)
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--weight_decay", type=float, default=0.0001)
