@@ -106,6 +106,8 @@ def main(args):
         class_counts=dm.class_counts,
         defect_count=dm.defect_count,
         beta=args.beta,
+        base_loss=args.base_loss,
+        focal_gamma=args.focal_gamma,
         meta_loss_weight=args.meta_loss_weight,
         push_mode=args.meta_push_mode,
     )
@@ -251,8 +253,12 @@ def run_cli():
     parser.add_argument(
         "--model", type=str, default="resnet18", choices=MultiLabelModel.MODEL_NAMES
     )
+    parser.add_argument(
+        "--base_loss", type=str, default="focal", choices=["focal", "sigmoid"]
+    )
+    parser.add_argument("--focal_gamma", type=float, default=2.0)
     parser.add_argument("--beta", type=float, default=0.9999)
-    parser.add_argument("--meta_loss_weight", type=float, default=1.0)
+    parser.add_argument("--meta_loss_weight", type=float, default=0.1)
     parser.add_argument(
         "--meta_push_mode",
         type=str,
