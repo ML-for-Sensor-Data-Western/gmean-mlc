@@ -46,7 +46,7 @@ class HybridLoss(torch.nn.Module):
         Returns:
             float: focal_loss: A float32 scalar representing normalized total loss..
         """
-        bc_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction="none")
+        bce_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction="none")
 
         if gamma == 0.0:
             modulator = 1.0
@@ -56,7 +56,7 @@ class HybridLoss(torch.nn.Module):
                 - gamma * torch.log(1 + torch.exp(-1.0 * logits))
             )
 
-        loss = modulator * bc_loss
+        loss = modulator * bce_loss
 
         if alpha is not None:
             weighted_loss = alpha * loss
@@ -65,6 +65,7 @@ class HybridLoss(torch.nn.Module):
             focal_loss = torch.sum(loss)
 
         focal_loss /= (torch.sum(targets) + 1e-6)
+        
         return focal_loss
 
     @staticmethod
@@ -84,7 +85,7 @@ class HybridLoss(torch.nn.Module):
         return weights
 
     @staticmethod
-    def _calculate_balancing_weights(
+    def _calculate_batch_balancing_weights(
         class_weights: torch.Tensor, targets: torch.Tensor
     ) -> torch.Tensor:
         """
@@ -115,12 +116,13 @@ class HybridLoss(torch.nn.Module):
         Returns:
             float: The mean multi-label loss for the batch.
         """
-        weights = self._calculate_balancing_weights(class_weights, targets)
+        weights = self._calculate_batch_balancing_weights(class_weights, targets)
         
         if self.base_loss == "sigmoid":
             defect_type_loss = F.binary_cross_entropy_with_logits(
-                logits, targets, weights, reduction="mean"
+                logits, targets, weights, reduction="none"
             ) 
+            defect_type_loss = torch.sum(defect_type_loss) / (torch.sum(targets) + 1e-6)
         else:
             defect_type_loss = self._focal_loss(
                 logits, targets, weights, self.focal_gamma
@@ -209,7 +211,9 @@ class HybridLoss(torch.nn.Module):
 if __name__ == "__main__":
     NUM_CLASSES = 5
     BETA = 0.9999
-    BIN_LOSS_WEIGHT = 0.1
+    BASE_LOSS = "focal"
+    FOCAL_GAMMA = 2.0
+    META_LOSS_WEIGHT = 0.1
     PUSH_MODE = "positive_push"
     CLASS_COUNTS = torch.Tensor([2, 3, 1, 2, 2])
 
@@ -227,7 +231,9 @@ if __name__ == "__main__":
     criterion = HybridLoss(
         class_counts=CLASS_COUNTS,
         beta=BETA,
-        meta_loss_weight=BIN_LOSS_WEIGHT,
+        base_loss=BASE_LOSS,
+        focal_gamma=FOCAL_GAMMA,
+        meta_loss_weight=META_LOSS_WEIGHT,
         push_mode=PUSH_MODE,
     )
 
