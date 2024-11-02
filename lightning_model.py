@@ -43,6 +43,7 @@ class MultiLabelModel(pl.LightningModule):
         weight_decay=0.0001,
         batch_size=64,
         lr_steps: list | None = None,
+        lr_decay: float = 0.1,
         criterion=torch.nn.BCEWithLogitsLoss,
         dropout=0.2,
         attention_dropout=0.1,
@@ -82,6 +83,7 @@ class MultiLabelModel(pl.LightningModule):
         self.lr_steps = lr_steps
         if lr_steps is None:
             self.lr_steps = LR_STEPS
+        self.lr_decay = lr_decay
         self.batch_size = batch_size
 
     def forward(self, x):
@@ -178,7 +180,7 @@ class MultiLabelModel(pl.LightningModule):
             # Sewer-ML paper recommends 1/3, 2/3, 8/9 of total epochs
             optim,
             milestones=self.lr_steps,
-            gamma=0.01,
+            gamma=self.lr_decay,
         )
 
         return [optim], [scheduler]
