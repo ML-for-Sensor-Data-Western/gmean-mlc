@@ -32,7 +32,8 @@ class HybridLoss(torch.nn.Module):
         targets: torch.Tensor,
         alpha: Optional[torch.Tensor] = None,
         gamma: float = 2.0,
-    ) -> float:
+        reduction: Literal["mean", "none"] = "none",
+    ) -> float|torch.Tensor:
         """
         Calculate the focal loss for a batch of predictions and targets.
         Focal loss = -alpha_t * (1-pt)^gamma * log(pt)
@@ -44,7 +45,8 @@ class HybridLoss(torch.nn.Module):
             alpha (torch.Tensor): weights for each class to handle class imbalance (num_classes).
             gamma (float): A hyperparameter that controls the weighting scheme.
         Returns:
-            float: focal_loss: A float32 scalar representing normalized total loss..
+            torch.Tensor: (batch, num_classes) focal_loss: Focal loss per each element or
+            float: Target normalized focal loss for the batch.
         """
         bce_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction="none")
 
@@ -56,15 +58,13 @@ class HybridLoss(torch.nn.Module):
                 - gamma * torch.log(1 + torch.exp(-1.0 * logits))
             )
 
-        loss = modulator * bce_loss
+        focal_loss = modulator * bce_loss
 
         if alpha is not None:
-            weighted_loss = alpha * loss
-            focal_loss = torch.sum(weighted_loss)
-        else:
-            focal_loss = torch.sum(loss)
-
-        focal_loss /= (torch.sum(targets) + 1e-6)
+            focal_loss = alpha * focal_loss
+        
+        if reduction == "mean":
+            focal_loss = torch.mean(focal_loss)
         
         return focal_loss
 
@@ -122,11 +122,11 @@ class HybridLoss(torch.nn.Module):
             defect_type_loss = F.binary_cross_entropy_with_logits(
                 logits, targets, weights, reduction="none"
             ) 
-            defect_type_loss = torch.sum(defect_type_loss) / (torch.sum(targets) + 1e-6)
         else:
             defect_type_loss = self._focal_loss(
-                logits, targets, weights, self.focal_gamma
+                logits, targets, weights, self.focal_gamma, reduction="none"
             )
+        defect_type_loss = torch.sum(defect_type_loss) / (torch.sum(targets) + 1e-6)
 
         return defect_type_loss
 
@@ -160,7 +160,7 @@ class HybridLoss(torch.nn.Module):
             ) 
         else:
             meta_loss = self._focal_loss(
-                meta_logits, meta_targets, gamma=self.focal_gamma
+                meta_logits, meta_targets, gamma=self.focal_gamma, reduction="mean"
             )
 
         return meta_loss
@@ -188,7 +188,7 @@ class HybridLoss(torch.nn.Module):
             )
         else:
             meta_loss = self._focal_loss(
-                meta_logits, meta_targets, gamma=self.focal_gamma
+                meta_logits, meta_targets, gamma=self.focal_gamma, reduction="mean"
             )
 
         return meta_loss
