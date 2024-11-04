@@ -68,7 +68,7 @@ class MultiLabelDataset(Dataset):
         """Count the number of samples with defects"""
         # new column of 1 if any column has 1, 0 otherwise
         defect_count = gt[gt["Defect"] == 1].shape[0]
-        return torch.as_tensor(np.asarray(defect_count))
+        return defect_count
 
 
 class MultiLabelDatasetInference(Dataset):
