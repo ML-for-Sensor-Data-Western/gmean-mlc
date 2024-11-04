@@ -123,7 +123,7 @@ class HybridLoss(torch.nn.Module):
         Returns:
             float: The mean multi-label loss for the batch.
         """
-        normal_targets = 1 - torch.sum(targets, 1, True).clamp(0, 1)
+        normal_target = 1 - torch.sum(targets, 1, True).clamp(0, 1) # (batch_size, 1) 0 or 1
         weights = self._calculate_batch_balancing_weights(class_weights, normal_weight, targets)
         
         if self.base_loss == "sigmoid":
@@ -134,7 +134,11 @@ class HybridLoss(torch.nn.Module):
             defect_type_loss = self._focal_loss(
                 logits, targets, weights, self.focal_gamma, reduction="none"
             )
-        defect_type_loss = torch.sum(defect_type_loss) / (torch.sum(targets) + torch.sum(normal_targets))
+        # defect_type_loss = torch.sum(defect_type_loss) / (torch.sum(targets) + torch.sum(normal_target))
+        loss_denominator = torch.sum(targets, 1, keepdim=True) + normal_target
+        defect_type_loss = torch.mean(
+            torch.sum(defect_type_loss, 1, keepdim=True) / loss_denominator
+        )
 
         return defect_type_loss
 
