@@ -104,7 +104,7 @@ def main(args):
     # Init model
     criterion = HybridLoss(
         class_counts=dm.class_counts,
-        defect_count=dm.defect_count,
+        normal_count=dm.num_train_samples - dm.defect_count,
         beta=args.beta,
         base_loss=args.base_loss,
         focal_gamma=args.focal_gamma,

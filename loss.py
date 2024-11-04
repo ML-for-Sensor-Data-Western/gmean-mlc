@@ -7,7 +7,7 @@ class HybridLoss(torch.nn.Module):
     def __init__(
         self,
         class_counts: Optional[torch.Tensor] = None,
-        defect_count: Optional[torch.Tensor] = None,
+        normal_count: Optional[float] = None,
         beta: float = 0.9999,
         base_loss: Literal["sigmoid", "focal"] = "focal",
         focal_gamma: float = 2.0,
@@ -15,7 +15,7 @@ class HybridLoss(torch.nn.Module):
         push_mode: Literal["positive_push", "all_push"] = "positive_push",
     ):
         super().__init__()
-        self.defect_class_weights = self._get_class_weights(class_counts, beta)
+        self.defect_class_weights, self.normal_weight = self._get_class_weights(class_counts, normal_count, beta)
         self.base_loss = base_loss
         self.focal_gamma = focal_gamma
         self.meta_loss_weight = meta_loss_weight
@@ -69,24 +69,30 @@ class HybridLoss(torch.nn.Module):
         return focal_loss
 
     @staticmethod
-    def _get_class_weights(class_counts: torch.Tensor, beta: float) -> torch.Tensor:
+    def _get_class_weights(class_counts: torch.Tensor, normal_count: float, beta: float) -> torch.Tensor:
         """
         Calculate class weights using the effective number of samples method.
         Args:
             class_counts (torch.Tensor): the count of samples for each class.
+            normal_count (float): the count of samples for the normal class.
             beta (float): A hyperparameter that controls the weighting scheme.
         Returns:
             torch.Tensor: the calculated weights for each class.
+            float: the calculated weight for the normal class.
         """
-        effective_num = 1.0 - torch.pow(beta, class_counts)
-        weights = (1.0 - beta) / effective_num
-        weights = weights / torch.sum(weights) * len(class_counts)
+        all_class_counts = torch.cat([class_counts, torch.tensor([normal_count])])
+        effective_num = 1.0 - torch.pow(beta, all_class_counts)
+        all_weights = (1.0 - beta) / effective_num
+        all_weights = all_weights / torch.sum(all_weights) * len(all_class_counts)
+        
+        class_weights = all_weights[:-1]
+        normal_weight = all_weights[-1]
 
-        return weights
+        return class_weights, normal_weight
 
     @staticmethod
     def _calculate_batch_balancing_weights(
-        class_weights: torch.Tensor, targets: torch.Tensor
+        class_weights: torch.Tensor, normal_weight: float, targets: torch.Tensor
     ) -> torch.Tensor:
         """
         Calculate balancing weights for a batch of targets based on class weights.
@@ -100,12 +106,13 @@ class HybridLoss(torch.nn.Module):
         weights = weights.unsqueeze(0)  # (1, num_classes)
         weights = weights.expand(targets.shape[0], -1)  # (batch_size, num_classes)
         weights = torch.sum(weights * targets, 1, keepdim=True)  # (batch_size, 1)
+        weights[weights == 0] = normal_weight # set normal class weight
         weights = weights.expand(-1, targets.shape[1])  # (batch_size, num_classes)
 
         return weights
 
     def _calculate_multi_label_loss(
-        self, logits: torch.Tensor, targets: torch.Tensor, class_weights: torch.Tensor
+        self, logits: torch.Tensor, targets: torch.Tensor, class_weights: torch.Tensor, normal_weight: float
     ) -> float:
         """
         Calculate the multi-label loss for a batch of predictions and targets.
@@ -116,7 +123,8 @@ class HybridLoss(torch.nn.Module):
         Returns:
             float: The mean multi-label loss for the batch.
         """
-        weights = self._calculate_batch_balancing_weights(class_weights, targets)
+        normal_targets = 1 - torch.sum(targets, 1, True).clamp(0, 1)
+        weights = self._calculate_batch_balancing_weights(class_weights, normal_weight, targets)
         
         if self.base_loss == "sigmoid":
             defect_type_loss = F.binary_cross_entropy_with_logits(
@@ -126,7 +134,7 @@ class HybridLoss(torch.nn.Module):
             defect_type_loss = self._focal_loss(
                 logits, targets, weights, self.focal_gamma, reduction="none"
             )
-        defect_type_loss = torch.sum(defect_type_loss) / (torch.sum(targets) + 1e-6)
+        defect_type_loss = torch.sum(defect_type_loss) / (torch.sum(targets) + torch.sum(normal_targets))
 
         return defect_type_loss
 
@@ -195,7 +203,7 @@ class HybridLoss(torch.nn.Module):
 
     def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         defect_type_loss = self._calculate_multi_label_loss(
-            logits, targets, self.defect_class_weights
+            logits, targets, self.defect_class_weights, self.normal_weight
         )
 
         if self.push_mode == "positive_push":
