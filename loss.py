@@ -100,51 +100,40 @@ class HybridLoss(torch.nn.Module):
             class_weights (torch.Tensor): (num_classes,) the weights for each class.
             targets (torch.Tensor): (batch_size, num_classes) the one-hot encoded target classes.
         Returns:
-            torch.Tensor: (batch_size, num_classes) balancing weights for each sample in the batch.
+            torch.Tensor: (batch_size, 1) balancing weights for each sample in the batch.
         """
         weights = class_weights.to(targets.device).float()
         weights = weights.unsqueeze(0)  # (1, num_classes)
         weights = weights.expand(targets.shape[0], -1)  # (batch_size, num_classes)
         weights = torch.sum(weights * targets, 1, keepdim=True)  # (batch_size, 1)
         weights[weights == 0] = normal_weight # set normal class weight
-        weights = weights.expand(-1, targets.shape[1])  # (batch_size, num_classes)
 
         return weights
 
     def _calculate_multi_label_loss(
-        self, logits: torch.Tensor, targets: torch.Tensor, class_weights: torch.Tensor, normal_weight: float
-    ) -> float:
+        self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         """
         Calculate the multi-label loss for a batch of predictions and targets.
         Args:
             logits (torch.Tensor): logit scores for each class (batch_size, num_classes).
             targets (torch.Tensor): ground truth binary labels for each class (batch_size, num_classes).
-            class_weights (torch.Tensor): weights for each class to handle class imbalance (num_classes).
         Returns:
-            float: The mean multi-label loss for the batch.
+            torch.Tensor (BS, 1): element-wise multi-label loss for the batch.
         """
-        normal_target = 1 - torch.sum(targets, 1, True).clamp(0, 1) # (batch_size, 1) 0 or 1
-        weights = self._calculate_batch_balancing_weights(class_weights, normal_weight, targets)
-        
         if self.base_loss == "sigmoid":
             defect_type_loss = F.binary_cross_entropy_with_logits(
-                logits, targets, weights, reduction="none"
+                logits, targets, reduction="none"
             ) 
         else:
             defect_type_loss = self._focal_loss(
-                logits, targets, weights, self.focal_gamma, reduction="none"
+                logits, targets, self.focal_gamma, reduction="none"
             )
-        # defect_type_loss = torch.sum(defect_type_loss) / (torch.sum(targets) + torch.sum(normal_target))
-        loss_denominator = torch.sum(targets, 1, keepdim=True) + normal_target
-        defect_type_loss = torch.mean(
-            torch.sum(defect_type_loss, 1, keepdim=True) / loss_denominator
-        )
 
         return defect_type_loss
 
     def _calculate_positive_push_meta_loss(
         self, logits: torch.Tensor, targets: torch.Tensor
-    ) -> float:
+    ) -> torch.Tensor:
         """
         Calculate the target-push meta loss for defect detection.
         the meta positive node consists only of the nodes for the defect that are present in the image.
@@ -153,7 +142,7 @@ class HybridLoss(torch.nn.Module):
             logits (torch.Tensor): The predicted logits from the model with shape (batch_size, num_classes).
             targets (torch.Tensor): The ground truth targets with shape (batch_size, num_classes).
         Returns:
-            float: Average defect loss for the batch
+            Tensor (BS, 1): element-wise defect loss for the batch
         """
         meta_targets = torch.sum(targets, 1, True).clamp(0, 1)  # (batch_size, 1) 0 or 1
 
@@ -168,18 +157,18 @@ class HybridLoss(torch.nn.Module):
 
         if self.base_loss == "sigmoid":
             meta_loss = F.binary_cross_entropy_with_logits(
-                meta_logits, meta_targets, reduction="mean"
+                meta_logits, meta_targets, reduction="none"
             ) 
         else:
             meta_loss = self._focal_loss(
-                meta_logits, meta_targets, gamma=self.focal_gamma, reduction="mean"
+                meta_logits, meta_targets, gamma=self.focal_gamma, reduction="none"
             )
 
         return meta_loss
 
     def _calculate_all_push_meta_loss(
         self, logits: torch.Tensor, targets: torch.Tensor
-    ) -> float:
+    ) -> torch.Tensor:
         """
         Calculate the all-push meta loss for defect detection.
         the meta positive node consists of all the nodes in the image.
@@ -188,7 +177,7 @@ class HybridLoss(torch.nn.Module):
             logits (torch.Tensor): logits from the model with shape (batch_size, num_classes).
             targets (torch.Tensor): ground truth targets with shape (batch_size, num_classes).
         Returns:
-            float: Average defect loss for the batch
+            Tensor (BS, 1): element-wise defect loss for the batch
         """
         meta_targets = torch.sum(targets, 1, True).clamp(0, 1)  # (batch_size, 1) 0 or 1
 
@@ -196,19 +185,18 @@ class HybridLoss(torch.nn.Module):
 
         if self.base_loss == "sigmoid":
             meta_loss = F.binary_cross_entropy_with_logits(
-                meta_logits, meta_targets, reduction="mean"
+                meta_logits, meta_targets, reduction="none"
             )
         else:
             meta_loss = self._focal_loss(
-                meta_logits, meta_targets, gamma=self.focal_gamma, reduction="mean"
+                meta_logits, meta_targets, gamma=self.focal_gamma, reduction="none"
             )
 
         return meta_loss
 
     def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        defect_type_loss = self._calculate_multi_label_loss(
-            logits, targets, self.defect_class_weights, self.normal_weight
-        )
+        defect_type_loss = self._calculate_multi_label_loss(logits, targets)
+        defect_type_loss = torch.sum(defect_type_loss, 1, keepdim=True)
 
         if self.push_mode == "positive_push":
             meta_loss = self._calculate_positive_push_meta_loss(logits, targets)
@@ -216,6 +204,17 @@ class HybridLoss(torch.nn.Module):
             meta_loss = self._calculate_all_push_meta_loss(logits, targets)
 
         final_loss = defect_type_loss + self.meta_loss_weight * meta_loss
+        
+        balancing_weights = self._calculate_batch_balancing_weights(
+            self.defect_class_weights, self.normal_weight, targets
+        ) # (bs, 1)
+        
+        normal_target = 1 - torch.sum(targets, 1, True).clamp(0, 1) # (bs, 1)
+        loss_denominator = torch.sum(targets, 1, keepdim=True) + normal_target
+        
+        final_loss = torch.mean(
+            final_loss * balancing_weights / loss_denominator
+        )
 
         return final_loss
 
