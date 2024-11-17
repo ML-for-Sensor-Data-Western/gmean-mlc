@@ -170,11 +170,12 @@ class HybridLoss(torch.nn.Module):
         ) # (bs, 1)
         
         normal_target = 1 - torch.sum(targets, 1, True).clamp(0, 1) # (bs, 1)
-        loss_denominator = torch.sum(targets, 1, keepdim=True) + normal_target
-        
-        final_loss = torch.mean(
-            final_loss * balancing_weights / loss_denominator
-        )
+        # loss_denominator = torch.sum(targets, 1, keepdim=True) + normal_target
+        # final_loss = torch.mean(
+        #     final_loss * balancing_weights / loss_denominator
+        # )
+        loss_denominator = torch.sum(targets) + torch.sum(normal_target)
+        final_loss = torch.sum(final_loss * balancing_weights) / loss_denominator
 
         return final_loss
 
