@@ -24,9 +24,8 @@ class MultiLabelDataset(Dataset):
         self.onlyDefects = onlyDefects
 
         self.num_classes = len(self.LabelNames)
-
-        self.img_paths, self.labels, self.class_weights, self.defect_weight = self._load_annotations()
-        
+        self.img_paths, self.labels, self.class_counts, self.defect_count = self._load_annotations()
+        self.num_samples = len(self.img_paths)
 
     def _load_annotations(self):
         gtPath = os.path.join(self.annRoot, "SewerML_{}.csv".format(self.split))
@@ -38,10 +37,10 @@ class MultiLabelDataset(Dataset):
         img_paths = gt["Filename"].values
         labels = gt[self.LabelNames].values
         
-        class_weights = self._get_class_weights(labels)
-        defect_weight = self._get_defect_weight(gt)
+        class_counts = self._get_class_counts(labels)
+        defect_count = self._get_defect_count(gt)
         
-        return img_paths, labels, class_weights, defect_weight
+        return img_paths, labels, class_counts, defect_count
         
     def __len__(self):
         return len(self.img_paths)
@@ -57,27 +56,19 @@ class MultiLabelDataset(Dataset):
 
         return img, target, path
 
-    def _get_class_weights(self, labels: pd.DataFrame):
-        data_len = labels.shape[0]
-        class_weights = []
-
-        for defect in range(self.num_classes):
-            pos_count = len(labels[labels[:,defect] == 1])
-            neg_count = data_len - pos_count
-
-            class_weight = neg_count/pos_count if pos_count > 0 else 0
-            class_weights.append(np.asarray([class_weight]))
-        return torch.as_tensor(np.array(class_weights)).squeeze()
+    def _get_class_counts(self, labels: pd.DataFrame):
+        """Count the number of samples for each class"""
+        class_counts = [
+            len(labels[labels[:,defect_idx] == 1])
+            for defect_idx in range(self.num_classes)
+        ]
+        return torch.as_tensor(np.array(class_counts))
     
-    def _get_defect_weight(self, gt: pd.DataFrame):
-        data_len = gt.shape[0]
-        
+    def _get_defect_count(self, gt: pd.DataFrame):
+        """Count the number of samples with defects"""
         # new column of 1 if any column has 1, 0 otherwise
         defect_count = gt[gt["Defect"] == 1].shape[0]
-        normal_count = data_len - defect_count
-        
-        defect_weight = normal_count/defect_count if defect_count > 0 else 0
-        return torch.as_tensor(np.asarray(defect_weight))
+        return defect_count
 
 
 class MultiLabelDatasetInference(Dataset):
@@ -214,7 +205,6 @@ class BinaryDataset(Dataset):
         return torch.as_tensor(class_weight)
 
 
-
 if __name__ == "__main__":
     from torch.utils.data import DataLoader
     import torchvision.transforms as transforms
@@ -231,6 +221,6 @@ if __name__ == "__main__":
     binary_relevance_train = BinaryRelevanceDataset(annRoot="./annotations", imgRoot="./Data", split="Train", transform=transform, defect="RB")
 
     print(len(train), len(train_defect), len(binary_train), len(binary_relevance_train))
-    print(train.class_weights, train_defect.class_weights, binary_train.class_weights, binary_relevance_train.class_weights)
+    print(train.class_counts, train_defect.class_counts, binary_train.class_weights, binary_relevance_train.class_weights)
 
     
