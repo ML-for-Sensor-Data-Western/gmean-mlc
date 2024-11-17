@@ -126,7 +126,7 @@ class HybridLoss(torch.nn.Module):
             ) 
         else:
             defect_type_loss = self._focal_loss(
-                logits, targets, self.focal_gamma, reduction="none"
+                logits, targets, gamma=self.focal_gamma, reduction="none"
             )
 
         return defect_type_loss
@@ -227,6 +227,7 @@ if __name__ == "__main__":
     META_LOSS_WEIGHT = 0.1
     PUSH_MODE = "positive_push"
     CLASS_COUNTS = torch.Tensor([2, 3, 1, 2, 2])
+    NORMAL_COUNT = 5
 
     torch.manual_seed(0)
 
@@ -241,6 +242,7 @@ if __name__ == "__main__":
 
     criterion = HybridLoss(
         class_counts=CLASS_COUNTS,
+        normal_count=NORMAL_COUNT,
         beta=BETA,
         base_loss=BASE_LOSS,
         focal_gamma=FOCAL_GAMMA,
