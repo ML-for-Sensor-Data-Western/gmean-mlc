@@ -1,6 +1,8 @@
+from typing import Literal, Optional
+
 import torch
 import torch.nn.functional as F
-from typing import Optional, Literal
+from torchvision.ops import sigmoid_focal_loss
 
 
 class HybridLoss(torch.nn.Module):
@@ -25,48 +27,6 @@ class HybridLoss(torch.nn.Module):
             raise ValueError(f"Invalid base_loss '{base_loss}'")
         if push_mode not in ["positive_push", "all_push"]:
             raise ValueError(f"Invalid push_mode '{push_mode}'")
-
-    @staticmethod
-    def _focal_loss(
-        logits: torch.Tensor,
-        targets: torch.Tensor,
-        alpha: Optional[torch.Tensor] = None,
-        gamma: float = 2.0,
-        reduction: Literal["mean", "none"] = "none",
-    ) -> float|torch.Tensor:
-        """
-        Calculate the focal loss for a batch of predictions and targets.
-        Focal loss = -alpha_t * (1-pt)^gamma * log(pt)
-        pt is the probability of being classified to the true class.
-        pt = p (if true class), otherwise pt = 1 - p. p = sigmoid(logit).
-        Args:
-            logits (torch.Tensor): logit scores for each class (batch_size, num_classes).
-            targets (torch.Tensor): ground truth binary labels for each class (batch_size, num_classes).
-            alpha (torch.Tensor): weights for each class to handle class imbalance (num_classes).
-            gamma (float): A hyperparameter that controls the weighting scheme.
-        Returns:
-            torch.Tensor: (batch, num_classes) focal_loss: Focal loss per each element or
-            float: Target normalized focal loss for the batch.
-        """
-        bce_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction="none")
-
-        if gamma == 0.0:
-            modulator = 1.0
-        else:
-            modulator = torch.exp(
-                -gamma * targets * logits
-                - gamma * torch.log(1 + torch.exp(-1.0 * logits))
-            )
-
-        focal_loss = modulator * bce_loss
-
-        if alpha is not None:
-            focal_loss = alpha * focal_loss
-        
-        if reduction == "mean":
-            focal_loss = torch.mean(focal_loss)
-        
-        return focal_loss
 
     @staticmethod
     def _get_class_weights(class_counts: torch.Tensor, normal_count: float, beta: float) -> torch.Tensor:
@@ -125,8 +85,8 @@ class HybridLoss(torch.nn.Module):
                 logits, targets, reduction="none"
             ) 
         else:
-            defect_type_loss = self._focal_loss(
-                logits, targets, gamma=self.focal_gamma, reduction="none"
+            defect_type_loss = sigmoid_focal_loss(
+                logits, targets, alpha=-1, gamma=self.focal_gamma, reduction="none"
             )
 
         return defect_type_loss
@@ -160,8 +120,8 @@ class HybridLoss(torch.nn.Module):
                 meta_logits, meta_targets, reduction="none"
             ) 
         else:
-            meta_loss = self._focal_loss(
-                meta_logits, meta_targets, gamma=self.focal_gamma, reduction="none"
+            meta_loss = sigmoid_focal_loss(
+                meta_logits, meta_targets, alpha=-1, gamma=self.focal_gamma, reduction="none"
             )
 
         return meta_loss
@@ -188,8 +148,8 @@ class HybridLoss(torch.nn.Module):
                 meta_logits, meta_targets, reduction="none"
             )
         else:
-            meta_loss = self._focal_loss(
-                meta_logits, meta_targets, gamma=self.focal_gamma, reduction="none"
+            meta_loss = sigmoid_focal_loss(
+                meta_logits, meta_targets, alpha=-1, gamma=self.focal_gamma, reduction="none"
             )
 
         return meta_loss
