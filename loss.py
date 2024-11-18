@@ -10,23 +10,21 @@ class HybridLoss(torch.nn.Module):
         self,
         class_counts: Optional[torch.Tensor] = None,
         normal_count: Optional[float] = None,
-        beta: float = 0.9999,
+        class_balancing_beta: float = 0.9999,
         base_loss: Literal["sigmoid", "focal"] = "focal",
         focal_gamma: float = 2.0,
         meta_loss_weight: float = 1.0,
-        push_mode: Literal["positive_push", "all_push"] = "positive_push",
+        meta_loss_beta: float = 0.1
     ):
         super().__init__()
-        self.defect_class_weights, self.normal_weight = self._get_class_weights(class_counts, normal_count, beta)
+        self.defect_class_weights, self.normal_weight = self._get_class_weights(class_counts, normal_count, class_balancing_beta)
         self.base_loss = base_loss
         self.focal_gamma = focal_gamma
         self.meta_loss_weight = meta_loss_weight
-        self.push_mode = push_mode
+        self.meta_loss_beta = meta_loss_beta
         
         if base_loss not in ["sigmoid", "focal"]:
             raise ValueError(f"Invalid base_loss '{base_loss}'")
-        if push_mode not in ["positive_push", "all_push"]:
-            raise ValueError(f"Invalid push_mode '{push_mode}'")
 
     @staticmethod
     def _get_class_weights(class_counts: torch.Tensor, normal_count: float, beta: float) -> torch.Tensor:
@@ -91,12 +89,13 @@ class HybridLoss(torch.nn.Module):
 
         return defect_type_loss
 
-    def _calculate_positive_push_meta_loss(
+    def _calculate_meta_loss(
         self, logits: torch.Tensor, targets: torch.Tensor
     ) -> torch.Tensor:
         """
-        Calculate the target-push meta loss for defect detection.
-        the meta positive node consists only of the nodes for the defect that are present in the image.
+        Calculate the meta loss for defect detection.
+        the meta node consists of weighted nodes for the defect that are present in the image, 
+        or all nodes if the image is normal (no defect).
 
         Args:
             logits (torch.Tensor): The predicted logits from the model with shape (batch_size, num_classes).
@@ -110,38 +109,12 @@ class HybridLoss(torch.nn.Module):
         meta_logit_weights = targets.clone()
         # set all columns to 1 if the column is normal (no defect)
         meta_logit_weights[meta_targets.expand(-1, targets.shape[1]) == 0] = 1
+        # set remaining 0s to beta
+        meta_logit_weights[meta_logit_weights == 0] = self.meta_loss_beta
 
         meta_logits = torch.sum(
             logits * meta_logit_weights, dim=1, keepdim=True
         ) / torch.sum(meta_logit_weights, dim=1, keepdim=True)
-
-        if self.base_loss == "sigmoid":
-            meta_loss = F.binary_cross_entropy_with_logits(
-                meta_logits, meta_targets, reduction="none"
-            ) 
-        else:
-            meta_loss = sigmoid_focal_loss(
-                meta_logits, meta_targets, alpha=-1, gamma=self.focal_gamma, reduction="none"
-            )
-
-        return meta_loss
-
-    def _calculate_all_push_meta_loss(
-        self, logits: torch.Tensor, targets: torch.Tensor
-    ) -> torch.Tensor:
-        """
-        Calculate the all-push meta loss for defect detection.
-        the meta positive node consists of all the nodes in the image.
-
-        Args:
-            logits (torch.Tensor): logits from the model with shape (batch_size, num_classes).
-            targets (torch.Tensor): ground truth targets with shape (batch_size, num_classes).
-        Returns:
-            Tensor (BS, 1): element-wise defect loss for the batch
-        """
-        meta_targets = torch.sum(targets, 1, True).clamp(0, 1)  # (batch_size, 1) 0 or 1
-
-        meta_logits = torch.mean(logits, dim=1, keepdim=True)
 
         if self.base_loss == "sigmoid":
             meta_loss = F.binary_cross_entropy_with_logits(
@@ -158,11 +131,8 @@ class HybridLoss(torch.nn.Module):
         defect_type_loss = self._calculate_multi_label_loss(logits, targets)
         defect_type_loss = torch.sum(defect_type_loss, 1, keepdim=True)
 
-        if self.push_mode == "positive_push":
-            meta_loss = self._calculate_positive_push_meta_loss(logits, targets)
-        else:
-            meta_loss = self._calculate_all_push_meta_loss(logits, targets)
-
+        meta_loss = self._calculate_meta_loss(logits, targets)
+        
         final_loss = defect_type_loss + self.meta_loss_weight * meta_loss
         
         balancing_weights = self._calculate_batch_balancing_weights(
@@ -182,11 +152,11 @@ class HybridLoss(torch.nn.Module):
 
 if __name__ == "__main__":
     NUM_CLASSES = 5
-    BETA = 0.9999
+    CLASS_BALANCING_BETA = 0.9999
     BASE_LOSS = "focal"
     FOCAL_GAMMA = 2.0
     META_LOSS_WEIGHT = 0.1
-    PUSH_MODE = "positive_push"
+    META_LOSS_BETA = 0.1
     CLASS_COUNTS = torch.Tensor([2, 3, 1, 2, 2])
     NORMAL_COUNT = 5
 
@@ -204,11 +174,11 @@ if __name__ == "__main__":
     criterion = HybridLoss(
         class_counts=CLASS_COUNTS,
         normal_count=NORMAL_COUNT,
-        beta=BETA,
+        class_balancing_beta=CLASS_BALANCING_BETA,
         base_loss=BASE_LOSS,
         focal_gamma=FOCAL_GAMMA,
         meta_loss_weight=META_LOSS_WEIGHT,
-        push_mode=PUSH_MODE,
+        meta_loss_beta=META_LOSS_BETA,
     )
 
     loss = criterion(logits, targets)
