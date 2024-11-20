@@ -105,11 +105,11 @@ def main(args):
     criterion = HybridLoss(
         class_counts=dm.class_counts,
         normal_count=dm.num_train_samples - dm.defect_count,
-        beta=args.beta,
+        class_balancing_beta=args.class_balancing_beta,
         base_loss=args.base_loss,
         focal_gamma=args.focal_gamma,
         meta_loss_weight=args.meta_loss_weight,
-        push_mode=args.meta_push_mode,
+        meta_loss_beta=args.meta_loss_beta,
     )
 
     light_model = MultiLabelModel(
@@ -264,14 +264,12 @@ def run_cli():
     )
     # Trainer args
     parser.add_argument("--precision", type=int, default=32, choices=[16, 32])
-    parser.add_argument("--max_epochs", type=int, default=100)
-    parser.add_argument("--lr_steps", nargs="+", type=int, default=[30, 60, 80])
+    parser.add_argument("--max_epochs", type=int, default=50)
+    parser.add_argument("--lr_steps", nargs="+", type=int, default=[25, 40])
     parser.add_argument("--lr_decay", type=float, default=0.1)
     parser.add_argument("--gpus", nargs="+", type=int, default=[0])
     # Data args
-    parser.add_argument(
-        "--batch_size", type=int, default=64, help="Size of the batch per GPU"
-    )
+    parser.add_argument("--batch_size", type=int, default=256)
     # Model args
     parser.add_argument(
         "--model", type=str, default="resnet18", choices=MultiLabelModel.MODEL_NAMES
@@ -280,14 +278,9 @@ def run_cli():
         "--base_loss", type=str, default="focal", choices=["focal", "sigmoid"]
     )
     parser.add_argument("--focal_gamma", type=float, default=2.0)
-    parser.add_argument("--beta", type=float, default=0.9999)
+    parser.add_argument("--class_balancing_beta", type=float, default=0.9999)
     parser.add_argument("--meta_loss_weight", type=float, default=0.1)
-    parser.add_argument(
-        "--meta_push_mode",
-        type=str,
-        default="positive_push",
-        choices=["positive_push", "all_push"],
-    )
+    parser.add_argument("--meta_loss_beta", type=float, default=0.1)
     parser.add_argument("--learning_rate", type=float, default=1e-1)
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--weight_decay", type=float, default=0.0001)
