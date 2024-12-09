@@ -14,7 +14,6 @@ import torch.nn as nn
 
 import sewer_models
 import ml_models
-from lightning_trainer import HybridLoss
 from lightning_model import MultiLabelModel
 
 
@@ -114,7 +113,6 @@ def run_inference(args):
     lt_model = MultiLabelModel(
         model = model_name,
         num_classes=num_classes,
-        criterion=HybridLoss(),
     )
 
     lt_model.load_state_dict(updated_state_dict)
