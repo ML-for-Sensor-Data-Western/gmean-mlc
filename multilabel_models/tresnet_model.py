@@ -110,9 +110,10 @@ class Bottleneck(nn.Module):
 
 class TResNet(nn.Module):
 
-    def __init__(self, layers, in_chans=3, num_classes=1000, width_factor=1.0, remove_aa_jit=False):
+    def __init__(self, layers, in_chans=3, num_classes=1000, width_factor=1.0, remove_aa_jit=False, mtl_heads=False):
         super(TResNet, self).__init__()
 
+        self.mtl_heads = mtl_heads
         # JIT layers
         space_to_depth = SpaceToDepthModule()
         anti_alias_layer = partial(AntiAliasDownsampleLayer, remove_aa_jit=remove_aa_jit)
@@ -144,8 +145,12 @@ class TResNet(nn.Module):
         self.embeddings = []
         self.global_pool = nn.Sequential(OrderedDict([('global_pool_layer', global_pool_layer)]))
         self.num_features = (self.planes * 8) * Bottleneck.expansion
-        fc = nn.Linear(self.num_features, num_classes)
-        self.head = nn.Sequential(OrderedDict([('fc', fc)]))
+        
+        if mtl_heads:
+            self.head = nn.ModuleList([self._make_head(self.num_features, 1) for _ in range(num_classes)])
+        else:
+            fc = nn.Linear(self.num_features, num_classes)
+            self.head = nn.Sequential(OrderedDict([('fc', fc)]))
 
         # model initilization
         for m in self.modules():
@@ -181,11 +186,24 @@ class TResNet(nn.Module):
         for i in range(1, blocks): layers.append(
             block(self.inplanes, planes, use_se=use_se, anti_alias_layer=anti_alias_layer))
         return nn.Sequential(*layers)
+    
+    def _make_head(self, input_dim, output_dim):
+        return nn.Sequential(
+            nn.Linear(input_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, output_dim)
+        )
 
     def forward(self, x):
         x = self.body(x)
         self.embeddings = self.global_pool(x)
-        logits = self.head(self.embeddings)
+        
+        if self.mtl_heads:
+            logits = [head(self.embeddings) for head in self.head]
+            logits = torch.cat(logits, dim=1)
+        else:
+            logits = self.head(self.embeddings)
+            
         return logits
 
 
