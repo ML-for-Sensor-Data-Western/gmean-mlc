@@ -2,8 +2,8 @@ import pytorch_lightning as pl
 import torch
 from torchvision import models as torch_models
 
-from torchmetrics.classification import MultilabelAccuracy, MultilabelF1Score, MultilabelFBetaScore
-from eval_metrics import CustomMultiLabelAveragePrecision, MaxMultiLabelFbetaScore
+from torchmetrics.classification import MultilabelF1Score, MultilabelFBetaScore
+from eval_metrics import CustomMultiLabelAveragePrecision
 
 import ml_models
 import sewer_models
@@ -66,11 +66,8 @@ class MultiLabelModel(pl.LightningModule):
             )            
 
         self.criterion = criterion
-        self.max_f1 = MaxMultiLabelFbetaScore(num_labels=self.num_classes, beta=1.)
-        self.max_f2 = MaxMultiLabelFbetaScore(num_labels=self.num_classes, beta=2.)
-        self.ap = CustomMultiLabelAveragePrecision(num_labels=self.num_classes)
         self.bce = torch.nn.BCEWithLogitsLoss()
-        self.accuracy = MultilabelAccuracy(num_labels=self.num_classes, average="macro")
+        self.ap = CustomMultiLabelAveragePrecision(num_labels=self.num_classes)
         self.f1 = MultilabelF1Score(num_labels=self.num_classes, average="macro")
         self.f2 = MultilabelFBetaScore(num_labels=self.num_classes, beta=2., average="macro")
 
@@ -112,27 +109,15 @@ class MultiLabelModel(pl.LightningModule):
         logits = self(x)
         
         loss = self.criterion(logits, y.float())
-        
-        self.max_f1.update(logits, y)
-        self.max_f2.update(logits, y)
-        self.ap.update(logits, y)
-        
-        accuracy = self.accuracy(logits, y)
         bce = self.bce(logits, y.float())
+        
+        self.ap.update(logits, y)
         self.f1.update(logits, y)
         self.f2.update(logits, y)
         
         self.log(
             "val_loss",
             loss,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            batch_size=self.batch_size,
-        )
-        self.log(
-            "val_acc",
-            accuracy,
             on_step=False,
             on_epoch=True,
             prog_bar=True,
@@ -151,11 +136,7 @@ class MultiLabelModel(pl.LightningModule):
     
     def on_validation_epoch_end(self) -> None:
         self.log("val_ap", self.ap.compute(), on_step=False, on_epoch=True, prog_bar=True)
-        self.ap.reset()    
-        self.log("val_max_f1", self.max_f1.compute(), on_step=False, on_epoch=True, prog_bar=True)
-        self.max_f1.reset()
-        self.log("val_max_f2", self.max_f2.compute(), on_step=False, on_epoch=True, prog_bar=True)
-        self.max_f2.reset()
+        self.ap.reset()
         self.log("val_f1", self.f1.compute(), on_step=False, on_epoch=True, prog_bar=True)
         self.f1.reset()
         self.log("val_f2", self.f2.compute(), on_step=False, on_epoch=True, prog_bar=True)
@@ -164,7 +145,7 @@ class MultiLabelModel(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         x, y, _ = batch
         logits = self(x)
-        loss = self.loss(logits, y)
+        loss = self.criterion(logits, y.float())
         self.log("test_loss", loss)
         return loss
 
@@ -176,8 +157,6 @@ class MultiLabelModel(pl.LightningModule):
             weight_decay=self.weight_decay,
         )
         scheduler = torch.optim.lr_scheduler.MultiStepLR(
-            # Always adjust when changing number of epochs
-            # Sewer-ML paper recommends 1/3, 2/3, 8/9 of total epochs
             optim,
             milestones=self.lr_steps,
             gamma=self.lr_decay,

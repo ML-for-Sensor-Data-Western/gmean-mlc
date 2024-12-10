@@ -139,33 +139,43 @@ def main(args):
         args.log_save_dir, args.model, prefix + "version_" + str(args.log_version)
     )
 
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=logger_path,
+        filename="{epoch:02d}-{val_loss:.2f}",
+        save_top_k=1,
+        save_last=True,
+        verbose=False,
+        monitor="val_loss",
+        mode="min",
+    )
+    
     checkpoint_callback_ap = ModelCheckpoint(
         dirpath=logger_path,
         filename="{epoch:02d}-{val_ap:.2f}",
         save_top_k=1,
-        save_last=True,
+        save_last=False,
         verbose=False,
         monitor="val_ap",
         mode="max",
     )
 
-    checkpoint_callback_max_f1 = ModelCheckpoint(
+    checkpoint_callback_f1 = ModelCheckpoint(
         dirpath=logger_path,
-        filename="{epoch:02d}-{val_max_f1:.2f}",
+        filename="{epoch:02d}-{val_f1:.2f}",
         save_top_k=1,
         save_last=False,
         verbose=False,
-        monitor="val_max_f1",
+        monitor="val_f1",
         mode="max",
     )
 
-    checkpoint_callback_max_f2 = ModelCheckpoint(
+    checkpoint_callback_f2 = ModelCheckpoint(
         dirpath=logger_path,
-        filename="{epoch:02d}-{val_max_f2:.2f}",
+        filename="{epoch:02d}-{val_f2:.2f}",
         save_top_k=1,
         save_last=False,
         verbose=False,
-        monitor="val_max_f2",
+        monitor="val_f2",
         mode="max",
     )
     
@@ -173,20 +183,10 @@ def main(args):
         dirpath=logger_path,
         filename="{epoch:02d}-{val_bce:.2f}",
         save_top_k=1,
-        save_last=True,
+        save_last=False,
         verbose=False,
         monitor="val_bce",
         mode="min",
-    )
-    
-    checkpoint_callback_acc = ModelCheckpoint(
-        dirpath=logger_path,
-        filename="{epoch:02d}-{val_acc:.2f}",
-        save_top_k=1,
-        save_last=True,
-        verbose=False,
-        monitor="val_acc",
-        mode="max",
     )
 
     lr_monitor = LearningRateMonitor(logging_interval="step")
@@ -201,11 +201,11 @@ def main(args):
         benchmark=True,
         logger=logger,
         callbacks=[
+            checkpoint_callback,
             checkpoint_callback_ap,
-            checkpoint_callback_max_f1,
-            checkpoint_callback_max_f2,
+            checkpoint_callback_f1,
+            checkpoint_callback_f2,
             checkpoint_callback_bce,
-            checkpoint_callback_acc,
             lr_monitor,
             # early_stopper,
         ],
