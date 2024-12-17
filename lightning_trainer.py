@@ -189,7 +189,7 @@ def main(args):
         mode="min",
     )
 
-    lr_monitor = LearningRateMonitor(logging_interval="step")
+    lr_monitor = LearningRateMonitor(logging_interval="epoch")
 
     # early_stopper = EarlyStopping(monitor="val_ap", mode="max", patience=20)
 
