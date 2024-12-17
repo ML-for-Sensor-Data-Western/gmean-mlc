@@ -11,7 +11,7 @@ class HybridLoss(torch.nn.Module):
         class_counts: Optional[torch.Tensor] = None,
         normal_count: Optional[float] = None,
         class_balancing_beta: float = 0.9999,
-        base_loss: Literal["sigmoid", "focal"] = "focal",
+        base_loss: Literal["bce", "focal"] = "focal",
         focal_gamma: float = 2.0,
         meta_loss_weight: float = 1.0,
         meta_loss_beta: float = 0.1
@@ -23,7 +23,7 @@ class HybridLoss(torch.nn.Module):
         self.meta_loss_weight = meta_loss_weight
         self.meta_loss_beta = meta_loss_beta
         
-        if base_loss not in ["sigmoid", "focal"]:
+        if base_loss not in ["bce", "focal"]:
             raise ValueError(f"Invalid base_loss '{base_loss}'")
 
     @staticmethod
@@ -78,7 +78,7 @@ class HybridLoss(torch.nn.Module):
         Returns:
             torch.Tensor (BS, 1): element-wise multi-label loss for the batch.
         """
-        if self.base_loss == "sigmoid":
+        if self.base_loss == "bce":
             defect_type_loss = F.binary_cross_entropy_with_logits(
                 logits, targets, reduction="none"
             ) 
@@ -116,7 +116,7 @@ class HybridLoss(torch.nn.Module):
             logits * meta_logit_weights, dim=1, keepdim=True
         ) / torch.sum(meta_logit_weights, dim=1, keepdim=True)
 
-        if self.base_loss == "sigmoid":
+        if self.base_loss == "bce":
             meta_loss = F.binary_cross_entropy_with_logits(
                 meta_logits, meta_targets, reduction="none"
             )
