@@ -189,9 +189,13 @@ class TResNet(nn.Module):
     
     def _make_head(self, input_dim, output_dim):
         return nn.Sequential(
+            nn.Dropout(0.15),
             nn.Linear(input_dim, 128),
             nn.ReLU(),
-            nn.Linear(128, output_dim)
+            nn.Dropout(0.15),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, output_dim)
         )
 
     def forward(self, x):
