@@ -37,6 +37,7 @@ class MultiLabelModel(pl.LightningModule):
     def __init__(
         self,
         model="resnet18",
+        mtl_heads=False,
         num_classes=2,
         learning_rate=1e-2,
         momentum=0.9,
@@ -45,8 +46,6 @@ class MultiLabelModel(pl.LightningModule):
         lr_steps: list | None = None,
         lr_decay: float = 0.1,
         criterion=torch.nn.BCEWithLogitsLoss,
-        dropout=0.2,
-        attention_dropout=0.1,
         **kwargs,
     ):
         super(MultiLabelModel, self).__init__()
@@ -55,11 +54,11 @@ class MultiLabelModel(pl.LightningModule):
         self.num_classes = num_classes
 
         if model in MultiLabelModel.TORCHVISION_MODEL_NAMES:
-            self.model = torch_models.__dict__[model](num_classes=self.num_classes, dropout=dropout, attention_dropout=attention_dropout)
+            self.model = torch_models.__dict__[model](num_classes=self.num_classes, mtl_heads=mtl_heads)
         elif model in MultiLabelModel.SEWER_MODEL_NAMES:
-            self.model = sewer_models.__dict__[model](num_classes=self.num_classes)
+            self.model = sewer_models.__dict__[model](num_classes=self.num_classes, mtl_heads=mtl_heads)
         elif model in MultiLabelModel.MULTILABEL_MODEL_NAMES:
-            self.model = ml_models.__dict__[model](num_classes=self.num_classes)
+            self.model = ml_models.__dict__[model](num_classes=self.num_classes, mtl_heads=mtl_heads)
         else:
             raise ValueError(
                 "Got model {}, but no such model is in this codebase".format(model)

@@ -53,39 +53,29 @@ def evaluate(dataloader, model, device):
     return sigmoidPredictions, imgPathsList
 
 
-def load_model(model_path, best_weights=False):
+def load_model(model_path):
 
-    if best_weights:
-        if not os.path.isfile(model_path):
-            raise ValueError("The provided path does not lead to a valid file: {}".format(model_path))
-        last_ckpt_path = model_path
-    else:
-        last_ckpt_path = os.path.join(model_path, "last.ckpt")
-        if not os.path.isfile(last_ckpt_path):
-            raise ValueError("The provided directory path does not contain a 'last.ckpt' file: {}".format(model_path))
+    if not os.path.isfile(model_path):
+        raise ValueError("The provided path does not lead to a valid file: {}".format(model_path))
     
-    model_last_ckpt = torch.load(last_ckpt_path)
+    model_ckpt = torch.load(model_path)
     
-
-    model_name = model_last_ckpt["hyper_parameters"]["model"]
-    num_classes = model_last_ckpt["hyper_parameters"]["num_classes"]
-    training_mode = model_last_ckpt["hyper_parameters"]["training_mode"]
-    br_defect = model_last_ckpt["hyper_parameters"]["br_defect"]
+    print("Model Hyperparams: \n", model_ckpt["hyper_parameters"])
     
-    # Load best checkpoint
-    best_model = model_last_ckpt
-    best_model_state_dict = best_model["state_dict"]
+    model_name = model_ckpt["hyper_parameters"]["model"]
+    num_classes = model_ckpt["hyper_parameters"]["num_classes"]
+    mtl_heads = model_ckpt["hyper_parameters"]["mtl_heads"]
+    training_mode = model_ckpt["hyper_parameters"]["training_mode"]
+    br_defect = model_ckpt["hyper_parameters"]["br_defect"]
+    
+    model_state_dict = model_ckpt["state_dict"]
     
     keys_to_drop = ["biases", "criterion.bce_with_weights.pos_weight", "criterion.bce_defect_types.pos_weight", "criterion.bce_defect.pos_weight", "criterion.bce.pos_weight"]
     for key in keys_to_drop:
-        if key in best_model_state_dict.keys():
-            best_model_state_dict.pop(key)
-    # if "biases" in best_model_state_dict.keys():
-    #     best_model_state_dict.pop("biases")
-    # if "criterion.bce_with_weights.pos_weight" in best_model_state_dict.keys():
-    #     best_model_state_dict.pop("criterion.bce_with_weights.pos_weight")
+        if key in model_state_dict.keys():
+            model_state_dict.pop(key)
 
-    return best_model_state_dict, model_name, num_classes, training_mode, br_defect
+    return model_state_dict, model_name, num_classes, mtl_heads, training_mode, br_defect
 
 
 def run_inference(args):
@@ -94,13 +84,12 @@ def run_inference(args):
     data_root = args["data_root"]
     model_path = args["model_path"]
     outputPath = args["results_output"]
-    best_weights = args["best_weights"]
     splits = ["Val", "Test"] if args["do_val_test"] else [args["split"]]
     
     if not os.path.isdir(outputPath):
         os.makedirs(outputPath)
   
-    updated_state_dict, model_name, num_classes, training_mode, br_defect = load_model(model_path, best_weights)
+    model_state_dict, model_name, num_classes, mtl_heads, training_mode, br_defect = load_model(model_path)
     
     if model_name not in MODEL_NAMES:
         raise ValueError("Got model {}, but no such model is in this codebase".format(model_name))
@@ -113,9 +102,10 @@ def run_inference(args):
     lt_model = MultiLabelModel(
         model = model_name,
         num_classes=num_classes,
+        mtl_heads=mtl_heads,
     )
 
-    lt_model.load_state_dict(updated_state_dict)
+    lt_model.load_state_dict(model_state_dict)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     lt_model = lt_model.to(device)
@@ -159,7 +149,6 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=512, help="Size of the batch per GPU")
     parser.add_argument('--workers', type=int, default=4)
     parser.add_argument("--model_path", type=str)
-    parser.add_argument("--best_weights", action="store_true", help="If true 'model_path' leads to a specific weight file. If False it leads to the output folder of lightning_trainer where the last.ckpt file is used to read the best model weights.")
     parser.add_argument("--results_output", type=str, default = "./results")
     parser.add_argument("--split", type=str, default = "Val", choices=["Train", "Val", "Test"])
     parser.add_argument("--do_val_test", action="store_true", help="If true, inference on both val and test sets.")

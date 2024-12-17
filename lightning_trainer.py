@@ -274,6 +274,7 @@ def run_cli():
     parser.add_argument(
         "--model", type=str, default="resnet18", choices=MultiLabelModel.MODEL_NAMES
     )
+    parser.add_argument("--mtl_heads", action="store_true")
     parser.add_argument(
         "--base_loss", type=str, default="focal", choices=["focal", "sigmoid"]
     )
@@ -284,8 +285,6 @@ def run_cli():
     parser.add_argument("--learning_rate", type=float, default=1e-1)
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--weight_decay", type=float, default=0.0001)
-    parser.add_argument("--dropout", type=float, default=0.2)
-    parser.add_argument("--attention_dropout", type=float, default=0.1)
 
     args = parser.parse_args()
     print(args)
