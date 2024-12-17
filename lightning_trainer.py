@@ -106,7 +106,7 @@ def main(args):
 
     # train
     prefix = "{}-".format(args.training_mode)
-    
+
     logger = CustomLogger(
         save_dir=args.log_save_dir,
         name=args.model,
@@ -207,8 +207,7 @@ def main(args):
         Best val_f2: {best_val_f2:.4f}
         Best val_bce: {best_val_bce:.4f}
         Best val_loss: {best_val_loss:.4f}
-        """
-        )
+        """)
 
     except Exception as e:
         print(e)
@@ -222,6 +221,7 @@ def run_cli():
     parser.add_argument("--ann_root", type=str, default="./annotations")
     parser.add_argument("--data_root", type=str, default="./Data")
     parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--gpus", nargs="+", type=int, default=[0])
     parser.add_argument("--checkpoint", type=str, default=None, help="If resuming")
     parser.add_argument("--log_save_dir", type=str, default="./logs")
     parser.add_argument("--log_version", type=int, default=1)
@@ -231,15 +231,14 @@ def run_cli():
         default="e2e",
         choices=["e2e", "binary", "defect"],
     )
-    # Trainer args
     parser.add_argument("--precision", type=int, default=32, choices=[16, 32])
-    parser.add_argument("--max_epochs", type=int, default=50)
-    parser.add_argument("--lr_steps", nargs="+", type=int, default=[25, 40])
-    parser.add_argument("--lr_decay", type=float, default=0.1)
-    parser.add_argument("--gpus", nargs="+", type=int, default=[0])
-    # Data args
+    parser.add_argument("--max_epochs", type=int, default=40)
+    parser.add_argument("--learning_rate", type=float, default=0.1)
+    parser.add_argument("--momentum", type=float, default=0.9)
+    parser.add_argument("--lr_steps", nargs="+", type=int, default=[20, 30])
+    parser.add_argument("--lr_decay", type=float, default=0.01)
+    parser.add_argument("--weight_decay", type=float, default=0.0001)
     parser.add_argument("--batch_size", type=int, default=256)
-    # Model args
     parser.add_argument(
         "--model", type=str, default="resnet18", choices=MultiLabelModel.MODEL_NAMES
     )
@@ -251,9 +250,6 @@ def run_cli():
     parser.add_argument("--class_balancing_beta", type=float, default=0.9999)
     parser.add_argument("--meta_loss_weight", type=float, default=0.1)
     parser.add_argument("--meta_loss_beta", type=float, default=0.1)
-    parser.add_argument("--learning_rate", type=float, default=1e-1)
-    parser.add_argument("--momentum", type=float, default=0.9)
-    parser.add_argument("--weight_decay", type=float, default=0.0001)
 
     args = parser.parse_args()
     print(args)
