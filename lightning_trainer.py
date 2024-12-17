@@ -244,7 +244,7 @@ def run_cli():
     )
     parser.add_argument("--mtl_heads", action="store_true")
     parser.add_argument(
-        "--base_loss", type=str, default="focal", choices=["focal", "sigmoid"]
+        "--base_loss", type=str, default="focal", choices=["focal", "bce"]
     )
     parser.add_argument("--focal_gamma", type=float, default=2.0)
     parser.add_argument("--class_balancing_beta", type=float, default=0.9999)
