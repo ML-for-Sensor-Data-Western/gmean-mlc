@@ -148,7 +148,7 @@ def main(args):
         monitor="val_loss",
         mode="min",
     )
-    
+
     checkpoint_callback_ap = ModelCheckpoint(
         dirpath=logger_path,
         filename="{epoch:02d}-{val_ap:.2f}",
@@ -178,7 +178,7 @@ def main(args):
         monitor="val_f2",
         mode="max",
     )
-    
+
     checkpoint_callback_bce = ModelCheckpoint(
         dirpath=logger_path,
         filename="{epoch:02d}-{val_bce:.2f}",
@@ -216,6 +216,22 @@ def main(args):
             trainer.fit(light_model, dm, ckpt_path=args.checkpoint)
         else:
             trainer.fit(light_model, dm)
+
+        best_val_ap = checkpoint_callback_ap.best_model_score
+        best_val_f1 = checkpoint_callback_f1.best_model_score
+        best_val_f2 = checkpoint_callback_f2.best_model_score
+        best_val_bce = checkpoint_callback_bce.best_model_score
+        best_val_loss = checkpoint_callback.best_model_score
+
+        print(f"""
+        Best val_ap: {best_val_ap:.4f}
+        Best val_f1: {best_val_f1:.4f}
+        Best val_f2: {best_val_f2:.4f}
+        Best val_bce: {best_val_bce:.4f}
+        Best val_loss: {best_val_loss:.4f}
+        """
+        )
+
     except Exception as e:
         print(e)
         with open(os.path.join(logger_path, "error.txt"), "w") as f:
