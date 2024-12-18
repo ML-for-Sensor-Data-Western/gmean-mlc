@@ -14,7 +14,6 @@ from torchvision import transforms
 
 from lightning_datamodules import (
     BinaryDataModule,
-    BinaryRelevanceDataModule,
     MultiLabelDataModule,
 )
 from lightning_model import MultiLabelModel
@@ -34,7 +33,7 @@ class CustomLogger(TensorBoardLogger):
 
 
 def main(config, args):
-    pl.seed_everything(1234567890)
+    # pl.seed_everything(1234567890)
 
     # Init data with transforms
     img_size = 299 if args.model in ["inception_v3", "chen2018_multilabel"] else 224
@@ -88,19 +87,6 @@ def main(config, args):
             train_transform=train_transform,
             eval_transform=eval_transform,
         )
-    elif args.training_mode == "binaryrelevance":
-        assert (
-            args.br_defect is not None
-        ), "Training mode is 'binary_relevance', but no 'br_defect' was stated"
-        dm = BinaryRelevanceDataModule(
-            batch_size=config["batch_size"],
-            workers=args.workers,
-            ann_root=args.ann_root,
-            data_root=args.data_root,
-            train_transform=train_transform,
-            eval_transform=eval_transform,
-            defect=args.br_defect,
-        )
     else:
         raise Exception("Invalid training_mode '{}'".format(args.training_mode))
 
@@ -125,15 +111,7 @@ def main(config, args):
 
     # train
     prefix = "{}-".format(args.training_mode)
-    if args.training_mode == "binaryrelevance":
-        prefix += args.br_defect
-    """
-    logger = TensorBoardLogger(
-        save_dir=args.log_save_dir,
-        name=args.model,
-        version=prefix + "version_" + str(args.log_version),
-    )
-    """
+    
     logger = CustomLogger(
         save_dir=args.log_save_dir,
         name=args.model,
@@ -196,32 +174,7 @@ def run_cli():
         "--training_mode",
         type=str,
         default="e2e",
-        choices=["e2e", "binary", "binaryrelevance", "defect"],
-    )
-    parser.add_argument(
-        "--br_defect",
-        type=str,
-        default=None,
-        choices=[
-            None,
-            "RB",
-            "OB",
-            "PF",
-            "DE",
-            "FS",
-            "IS",
-            "RO",
-            "IN",
-            "AF",
-            "BE",
-            "FO",
-            "GR",
-            "PH",
-            "PB",
-            "OS",
-            "OP",
-            "OK",
-        ],
+        choices=["e2e", "binary", "defect"],
     )
     # Trainer args
     parser.add_argument("--precision", type=int, default=32, choices=[16, 32])
