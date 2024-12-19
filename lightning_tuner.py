@@ -250,7 +250,7 @@ def run_cli():
         num_samples=args.num_trials,
         max_concurrent_trials=args.max_concurrent_trials,
         name="%s-version_%s" % (args.training_mode, args.log_version),
-        storage_path="%s\%s" % (args.log_save_dir, args.model),
+        storage_path=os.path.join(args.log_save_dir, args.model),
         progress_reporter=reporter,
         verbose=0,
         trial_dirname_creator=short_dirname,
