@@ -32,7 +32,7 @@ GLOBAL_CONFIG = {
     "learning_rate": tune.choice([0.001, 0.01, 0.02, 0.03, 0.05, 0.075, 0.1]),
     "lr_decay": tune.choice([0.01, 0.05, 0.1]),
     "momentum": tune.choice([0.5, 0.6, 0.7, 0.8, 0.9]),
-    "weight_decay": tune.uniform(0.0001,0.01),
+    "weight_decay": tune.uniform(0.0001, 0.01),
     "class_balancing_beta": tune.choice([0.9, 0.99, 0.999, 0.9999]),
     "meta_loss_weight": tune.uniform(0.0, 1.0),
     "meta_loss_beta": tune.uniform(0.0, 1.0),
@@ -47,9 +47,9 @@ class MyTuneReportCheckpointCallback(TuneReportCheckpointCallback, pl.Callback):
 
 def main(config, args):
     # pl.seed_everything(1234567890)
-    
-    args_dict = vars(args) 
-       
+
+    args_dict = vars(args)
+
     hyperparameters = {}
     for hp_name in GLOBAL_CONFIG.keys():
         if hp_name in config.keys():
@@ -199,8 +199,19 @@ def run_cli():
     parser.add_argument("--class_balancing_beta", type=float, default=0.9999)
     parser.add_argument("--meta_loss_weight", type=float, default=0.1)
     parser.add_argument("--meta_loss_beta", type=float, default=0.1)
-    parser.add_argument("--metric", type=str, help="metric to optimizer", choices=["val_ap", "val_f1", "val_f2"])
-    parser.add_argument("--params", nargs="+", type=str, help="params to optimize", default=["meta_loss_weight", "meta_loss_beta", "class_balancing_beta"])
+    parser.add_argument(
+        "--metric",
+        type=str,
+        help="metric to optimizer",
+        choices=["val_ap", "val_f1", "val_f2"],
+    )
+    parser.add_argument(
+        "--params",
+        nargs="+",
+        type=str,
+        help="params to optimize",
+        default=["meta_loss_weight", "meta_loss_beta", "class_balancing_beta"],
+    )
     parser.add_argument("--log_save_dir", type=str, default="./logs")
     parser.add_argument("--log_version", type=int, default=1)
 
@@ -210,29 +221,31 @@ def run_cli():
     # Adjust learning rate to amount of GPUs
     # args.workers = max(0, min(8, 4 * len(args.gpus_per_trial)))
     # args.learning_rate = args.learning_rate * (len(args.gpus_per_trial) * args.batch_size) / 256
-    
+
     config = {}
     for param in args.params:
         if param in GLOBAL_CONFIG.keys():
             config[param] = GLOBAL_CONFIG[param]
         else:
             raise Exception(f"Hyperparam underfined in global config '{param}'")
-    
+
     print("tunable parameters: ", config)
-    
-    metric_optim_mode = "max" if args.metric in ["val_ap", "val_f1", "val_f2"] else "min"
-    
+
+    metric_optim_mode = (
+        "max" if args.metric in ["val_ap", "val_f1", "val_f2"] else "min"
+    )
+
     search_alg = OptunaSearch(metric=args.metric, mode=metric_optim_mode)
 
     search_scheduler = ASHAScheduler(
-        time_attr="training_iteration", # default
+        time_attr="training_iteration",  # default
         metric=args.metric,
         mode=metric_optim_mode,
-        max_t=100, # default
+        max_t=100,  # default
         grace_period=18,
-        reduction_factor=4, # default
-        brackets=1, # default
-        stop_last_trials=True, # default
+        reduction_factor=4,  # default
+        brackets=1,  # default
+        stop_last_trials=True,  # default
     )
 
     reporter = CLIReporter(
