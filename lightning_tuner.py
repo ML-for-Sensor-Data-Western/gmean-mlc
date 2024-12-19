@@ -45,13 +45,6 @@ class MyTuneReportCheckpointCallback(TuneReportCheckpointCallback, pl.Callback):
         super().__init__(*args, **kwargs)
 
 
-class CustomLogger(TensorBoardLogger):
-    def log_metrics(self, metrics, step=None):
-        if "epoch" in metrics:
-            step = metrics["epoch"]
-        super().log_metrics(metrics, step)
-
-
 def main(config, args):
     # pl.seed_everything(1234567890)
     
@@ -146,16 +139,6 @@ def main(config, args):
         lr_steps=args.lr_steps,
     )
 
-    # train
-    prefix = "{}-".format(args.training_mode)
-    
-    logger = CustomLogger(
-        save_dir=args.log_save_dir,
-        name=args.model,
-        version=prefix + "version_" + str(args.log_version),
-    )
-
-
     tune_callback = MyTuneReportCheckpointCallback(
         metrics={args.metric: args.metric}, on="validation_end"
     )
@@ -167,7 +150,6 @@ def main(config, args):
         precision=args.precision,
         max_epochs=args.max_epochs,
         benchmark=True,
-        logger=logger,
         callbacks=[lr_monitor, tune_callback],
         enable_progress_bar=False,
     )
