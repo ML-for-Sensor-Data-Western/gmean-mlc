@@ -2,8 +2,8 @@ import os
 from argparse import ArgumentParser
 
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
-from pytorch_lightning.loggers import TensorBoardLogger
+import torch
+from pytorch_lightning.callbacks import LearningRateMonitor
 from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.integration.pytorch_lightning import TuneReportCheckpointCallback
@@ -18,6 +18,7 @@ from lightning_datamodules import (
 from lightning_model import MultiLabelModel
 from loss import HybridLoss
 
+torch.set_float32_matmul_precision("high")
 
 """
 The parameters in GLOBAL_CONFIG are the total hyperparameters that can be tuned.
