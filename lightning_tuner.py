@@ -83,38 +83,16 @@ def main(config, args):
         ]
     )
 
-    if args.training_mode == "e2e":
-        dm = MultiLabelDataModule(
-            batch_size=hyperparameters["batch_size"],
-            workers=args.workers,
-            ann_root=args.ann_root,
-            data_root=args.data_root,
-            train_transform=train_transform,
-            eval_transform=eval_transform,
-            only_defects=False,
-        )
-    elif args.training_mode == "defect":
-        dm = MultiLabelDataModule(
-            batch_size=hyperparameters["batch_size"],
-            workers=args.workers,
-            ann_root=args.ann_root,
-            data_root=args.data_root,
-            train_transform=train_transform,
-            eval_transform=eval_transform,
-            only_defects=True,
-        )
-    elif args.training_mode == "binary":
-        dm = BinaryDataModule(
-            batch_size=hyperparameters["batch_size"],
-            workers=args.workers,
-            ann_root=args.ann_root,
-            data_root=args.data_root,
-            train_transform=train_transform,
-            eval_transform=eval_transform,
-        )
-    else:
-        raise Exception("Invalid training_mode '{}'".format(args.training_mode))
-
+    dm = MultiLabelDataModule(
+        batch_size=hyperparameters["batch_size"],
+        workers=args.workers,
+        ann_root=args.ann_root,
+        data_root=args.data_root,
+        train_transform=train_transform,
+        eval_transform=eval_transform,
+        only_defects=False,
+    )
+    
     dm.prepare_data()
     dm.setup("fit")
 
@@ -165,8 +143,8 @@ def short_dirname(trial):
     return "trial_" + str(trial.trial_id)
 
 
-def run_cli():
-    # add PROGRAM level args
+if __name__ == "__main__":
+    
     parser = ArgumentParser()
     parser.add_argument("--ann_root", type=str, default="./annotations")
     parser.add_argument("--data_root", type=str, default="./Data")
@@ -175,12 +153,6 @@ def run_cli():
     parser.add_argument("--max_concurrent_trials", type=int, default=1)
     parser.add_argument("--cpus_per_trial", type=int, default=4)
     parser.add_argument("--gpus_per_trial", type=int, default=1)
-    parser.add_argument(
-        "--training_mode",
-        type=str,
-        default="e2e",
-        choices=["e2e", "binary", "defect"],
-    )
     parser.add_argument("--precision", type=int, default=32, choices=[16, 32])
     parser.add_argument("--max_epochs", type=int, default=40)
     parser.add_argument("--learning_rate", type=float, default=0.1)
@@ -263,7 +235,7 @@ def run_cli():
         scheduler=search_scheduler,
         num_samples=args.num_trials,
         max_concurrent_trials=args.max_concurrent_trials,
-        name="%s-version_%s" % (args.training_mode, args.log_version),
+        name="e2e-version_%s" % (args.log_version),
         storage_path=os.path.join(args.log_save_dir, args.model),
         progress_reporter=reporter,
         verbose=0,
@@ -274,7 +246,3 @@ def run_cli():
         "The best param values are: ",
         analysis.get_best_config(metric=args.metric, mode=metric_optim_mode),
     )
-
-
-if __name__ == "__main__":
-    run_cli()
