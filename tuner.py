@@ -165,12 +165,6 @@ def tune_parameters(args):
         stop_last_trials=True,  # default
     )
 
-    reporter = CLIReporter(
-        parameter_columns=args.params,
-        metric_columns=[args.metric, "training_iteration"],
-        print_intermediate_tables=False,
-    )
-
     checkpoint_config = CheckpointConfig(
         num_to_keep=1,
         checkpoint_score_attribute=args.metric,
@@ -193,7 +187,6 @@ def tune_parameters(args):
         storage_path=os.path.join(args.log_save_dir, args.model),
         checkpoint_config=checkpoint_config,
         verbose=2,
-        progress_reporter=reporter,
     )
 
     trainable = tune.with_resources(
