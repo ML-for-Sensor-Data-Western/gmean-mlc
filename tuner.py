@@ -111,8 +111,6 @@ def train(config, args):
         lr_steps=args.lr_steps,
     )
     
-    # Compile the model, can result in significant speedups
-    light_model = torch.compile(light_model)
 
     tune_callback = TuneReportCheckpointCallback(
         metrics={args.metric: args.metric}, on="validation_end"

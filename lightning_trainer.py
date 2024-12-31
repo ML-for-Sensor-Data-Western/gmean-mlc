@@ -105,8 +105,6 @@ def main(args):
         **vars(args),
     )
     
-    # Compile the model, can result in significant speedups
-    light_model = torch.compile(light_model)
 
     # train
     prefix = "{}-".format(args.training_mode)
