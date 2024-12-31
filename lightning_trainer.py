@@ -1,13 +1,14 @@
 import os
 from argparse import ArgumentParser
 
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import (
+import lightning.pytorch as pl
+
+from lightning.pytorch.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
     EarlyStopping,
 )
-from pytorch_lightning.loggers import TensorBoardLogger
+from lightning.pytorch.loggers import TensorBoardLogger
 from torchvision import transforms
 
 from lightning_datamodules import (
