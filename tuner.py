@@ -2,9 +2,9 @@
 Tuning selected parameters using Ray Tune.
 
 The parameters in GLOBAL_CONFIG are the total hyperparameters that can be tuned.
-The same parameters are in terminal args as well. 
-Make sure the parameters which do not need to be tuned are properly defined in 
-terminal args and the parameters to be tuned (must be a subset of GLOBAL_CONFIG) 
+The same parameters are in terminal args as well.
+Make sure the parameters which do not need to be tuned are properly defined in
+terminal args and the parameters to be tuned (must be a subset of GLOBAL_CONFIG)
 are stated in args.params.
 
 Refer https://docs.ray.io/en/latest/tune/examples/tune-pytorch-lightning.html#pytorch-lightning-classifier-for-mnist
@@ -54,7 +54,7 @@ def train(config, args):
             hyperparameters[hp_name] = args_dict[hp_name]
         else:
             raise Exception(f"Hyperparam underfined in args '{hp_name}'")
-        
+
     img_size = 299 if args.model in ["inception_v3", "chen2018_multilabel"] else 224
 
     train_transform = transforms.Compose(
@@ -86,7 +86,7 @@ def train(config, args):
         eval_transform=eval_transform,
         only_defects=False,
     )
-    
+
     dm.prepare_data()
     dm.setup("fit")
 
@@ -134,8 +134,89 @@ def trial_dirname(trial):
     return "trial_" + str(trial.trial_id)
 
 
+def tune_parameters(args):
+    print("\nAll args:", args)
+
+    # Adjust learning rate to amount of GPUs
+    # args.workers = max(0, min(8, 4 * len(args.gpus_per_trial)))
+    # args.learning_rate = args.learning_rate * (len(args.gpus_per_trial) * args.batch_size) / 256
+
+    config = {}
+    for param in args.params:
+        if param in GLOBAL_CONFIG.keys():
+            config[param] = GLOBAL_CONFIG[param]
+        else:
+            raise Exception(f"Hyperparam undefined in global config '{param}'")
+
+    print("\ntunable parameters: ", config.keys())
+
+    metric_optim_mode = (
+        "max" if args.metric in ["val_ap", "val_f1", "val_f2"] else "min"
+    )
+
+    search_alg = OptunaSearch(metric=args.metric, mode=metric_optim_mode)
+
+    search_scheduler = ASHAScheduler(
+        time_attr="training_iteration",  # default
+        max_t=100,  # default
+        grace_period=18,
+        reduction_factor=4,  # default
+        brackets=1,  # default
+        stop_last_trials=True,  # default
+    )
+
+    reporter = CLIReporter(
+        parameter_columns=args.params,
+        metric_columns=[args.metric, "training_iteration"],
+        print_intermediate_tables=False,
+    )
+
+    checkpoint_config = CheckpointConfig(
+        num_to_keep=1,
+        checkpoint_score_attribute=args.metric,
+        checkpoint_score_order=metric_optim_mode,
+    )
+
+    tune_config = tune.TuneConfig(
+        metric=args.metric,
+        mode=metric_optim_mode,
+        search_alg=search_alg,
+        scheduler=search_scheduler,
+        num_samples=args.num_trials,
+        max_concurrent_trials=args.max_concurrent_trials,
+        trial_name_creator=trial_name,
+        trial_dirname_creator=trial_dirname,
+    )
+
+    run_config = RunConfig(
+        name="e2e-version_%s" % (args.log_version),
+        storage_path=os.path.join(args.log_save_dir, args.model),
+        checkpoint_config=checkpoint_config,
+        verbose=2,
+        progress_reporter=reporter,
+    )
+
+    trainable = tune.with_resources(
+        trainable=tune.with_parameters(train, args=args),
+        resources={"cpu": args.cpus_per_trial, "gpu": args.gpus_per_trial},
+    )
+
+    tuner = Tuner(
+        trainable=trainable,
+        param_space=config,
+        tune_config=tune_config,
+        run_config=run_config,
+    )
+
+    result = tuner.fit()
+
+    print(
+        "The best param values are: ",
+        result.get_best_result(metric=args.metric, mode=metric_optim_mode),
+    )
+
+
 if __name__ == "__main__":
-    
     parser = ArgumentParser()
     parser.add_argument("--ann_root", type=str, default="./annotations")
     parser.add_argument("--data_root", type=str, default="./Data")
@@ -180,82 +261,5 @@ if __name__ == "__main__":
     parser.add_argument("--log_version", type=int, default=1)
 
     args = parser.parse_args()
-    print("\nAll args:", args)
 
-    # Adjust learning rate to amount of GPUs
-    # args.workers = max(0, min(8, 4 * len(args.gpus_per_trial)))
-    # args.learning_rate = args.learning_rate * (len(args.gpus_per_trial) * args.batch_size) / 256
-
-    config = {}
-    for param in args.params:
-        if param in GLOBAL_CONFIG.keys():
-            config[param] = GLOBAL_CONFIG[param]
-        else:
-            raise Exception(f"Hyperparam undefined in global config '{param}'")
-
-    print("\ntunable parameters: ", config.keys())
-
-    metric_optim_mode = (
-        "max" if args.metric in ["val_ap", "val_f1", "val_f2"] else "min"
-    )
-
-    search_alg = OptunaSearch(metric=args.metric, mode=metric_optim_mode)
-
-    search_scheduler = ASHAScheduler(
-        time_attr="training_iteration",  # default
-        max_t=100,  # default
-        grace_period=18,
-        reduction_factor=4,  # default
-        brackets=1,  # default
-        stop_last_trials=True,  # default
-    )
-    
-    reporter = CLIReporter(
-        parameter_columns=args.params,
-        metric_columns=[args.metric, "training_iteration"],
-        print_intermediate_tables=False,
-    )
-    
-    checkpoint_config = CheckpointConfig(
-        num_to_keep=1,
-        checkpoint_score_attribute=args.metric,
-        checkpoint_score_order=metric_optim_mode,
-    )
-    
-    tune_config=tune.TuneConfig(
-        metric=args.metric,
-        mode=metric_optim_mode,
-        search_alg=search_alg,
-        scheduler=search_scheduler,
-        num_samples=args.num_trials,
-        max_concurrent_trials=args.max_concurrent_trials,
-        trial_name_creator=trial_name,
-        trial_dirname_creator=trial_dirname,
-    )
-    
-    run_config = RunConfig(
-        name="e2e-version_%s" % (args.log_version),  
-        storage_path=os.path.join(args.log_save_dir, args.model),
-        checkpoint_config=checkpoint_config,
-        verbose=2,
-        progress_reporter=reporter,
-    )
-    
-    trainable = tune.with_resources(
-        trainable=tune.with_parameters(train, args=args),
-        resources={"cpu": args.cpus_per_trial, "gpu": args.gpus_per_trial},
-    )
-    
-    tuner = Tuner(
-        trainable=trainable,
-        param_space=config,
-        tune_config=tune_config,
-        run_config=run_config,
-    )
-    
-    result = tuner.fit()
-    
-    print(
-        "The best param values are: ",
-        result.get_best_result(metric=args.metric, mode=metric_optim_mode),
-    )
+    tune_parameters(args)
