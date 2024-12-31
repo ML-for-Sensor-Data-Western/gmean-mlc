@@ -1,32 +1,34 @@
-import os
-from argparse import ArgumentParser
-
-import pytorch_lightning as pl
-import torch
-from pytorch_lightning.callbacks import LearningRateMonitor
-from ray import tune
-from ray.tune import CLIReporter
-from ray.tune.integration.pytorch_lightning import TuneReportCheckpointCallback
-from ray.tune.schedulers import ASHAScheduler
-from ray.tune.search.optuna import OptunaSearch
-from torchvision import transforms
-
-from lightning_datamodules import (
-    BinaryDataModule,
-    MultiLabelDataModule,
-)
-from lightning_model import MultiLabelModel
-from loss import HybridLoss
-
-torch.set_float32_matmul_precision("high")
-
 """
+Tuning selected parameters using Ray Tune.
+
 The parameters in GLOBAL_CONFIG are the total hyperparameters that can be tuned.
 The same parameters are in terminal args as well. 
 Make sure the parameters which do not need to be tuned are properly defined in 
 terminal args and the parameters to be tuned (must be a subset of GLOBAL_CONFIG) 
 are stated in args.params.
+
+Refer https://docs.ray.io/en/latest/tune/examples/tune-pytorch-lightning.html#pytorch-lightning-classifier-for-mnist
+for onboarding ray train if each trial is a distributed training job.
 """
+
+import os
+from argparse import ArgumentParser
+
+import lightning.pytorch as pl
+import torch
+from ray import tune
+from ray.train import CheckpointConfig, RunConfig
+from ray.tune import CLIReporter, Tuner
+from ray.tune.integration.pytorch_lightning import TuneReportCheckpointCallback
+from ray.tune.schedulers import ASHAScheduler
+from ray.tune.search.optuna import OptunaSearch
+from torchvision import transforms
+
+from lightning_datamodules import MultiLabelDataModule
+from lightning_model import MultiLabelModel
+from loss import HybridLoss
+
+torch.set_float32_matmul_precision("high")
 
 GLOBAL_CONFIG = {
     "batch_size": tune.choice([64, 128, 256]),
@@ -40,15 +42,8 @@ GLOBAL_CONFIG = {
 }
 
 
-# had to redefine because of value erro: Expected a parent
-class MyTuneReportCheckpointCallback(TuneReportCheckpointCallback, pl.Callback):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-
-def main(config, args):
+def train(config, args):
     # pl.seed_everything(1234567890)
-
     args_dict = vars(args)
 
     hyperparameters = {}
@@ -59,8 +54,7 @@ def main(config, args):
             hyperparameters[hp_name] = args_dict[hp_name]
         else:
             raise Exception(f"Hyperparam underfined in args '{hp_name}'")
-
-    # Init data with transforms
+        
     img_size = 299 if args.model in ["inception_v3", "chen2018_multilabel"] else 224
 
     train_transform = transforms.Compose(
@@ -96,7 +90,6 @@ def main(config, args):
     dm.prepare_data()
     dm.setup("fit")
 
-    # Init our model
     criterion = HybridLoss(
         class_counts=dm.class_counts,
         normal_count=dm.num_train_samples - dm.defect_count,
@@ -118,28 +111,26 @@ def main(config, args):
         lr_steps=args.lr_steps,
     )
 
-    tune_callback = MyTuneReportCheckpointCallback(
+    tune_callback = TuneReportCheckpointCallback(
         metrics={args.metric: args.metric}, on="validation_end"
     )
 
-    lr_monitor = LearningRateMonitor(logging_interval="epoch")
-
     trainer = pl.Trainer(
-        num_nodes=1,
         precision=args.precision,
         max_epochs=args.max_epochs,
         benchmark=True,
-        callbacks=[lr_monitor, tune_callback],
+        callbacks=[tune_callback],
         enable_progress_bar=False,
     )
 
-    try:
-        trainer.fit(light_model, dm)
-    except Exception as e:
-        print("Error during trainer.fit: ", e)
+    trainer.fit(light_model, dm)
 
 
-def short_dirname(trial):
+def trial_name(trial):
+    return str(trial.trial_id)
+
+
+def trial_dirname(trial):
     return "trial_" + str(trial.trial_id)
 
 
@@ -148,10 +139,10 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--ann_root", type=str, default="./annotations")
     parser.add_argument("--data_root", type=str, default="./Data")
-    parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--num_trials", type=int, default=50)
     parser.add_argument("--max_concurrent_trials", type=int, default=1)
-    parser.add_argument("--cpus_per_trial", type=int, default=4)
+    parser.add_argument("--cpus_per_trial", type=int, default=8)
     parser.add_argument("--gpus_per_trial", type=int, default=1)
     parser.add_argument("--precision", type=int, default=32, choices=[16, 32])
     parser.add_argument("--max_epochs", type=int, default=40)
@@ -189,7 +180,7 @@ if __name__ == "__main__":
     parser.add_argument("--log_version", type=int, default=1)
 
     args = parser.parse_args()
-    print(args)
+    print("\nAll args:", args)
 
     # Adjust learning rate to amount of GPUs
     # args.workers = max(0, min(8, 4 * len(args.gpus_per_trial)))
@@ -200,9 +191,9 @@ if __name__ == "__main__":
         if param in GLOBAL_CONFIG.keys():
             config[param] = GLOBAL_CONFIG[param]
         else:
-            raise Exception(f"Hyperparam underfined in global config '{param}'")
+            raise Exception(f"Hyperparam undefined in global config '{param}'")
 
-    print("tunable parameters: ", config)
+    print("\ntunable parameters: ", config.keys())
 
     metric_optim_mode = (
         "max" if args.metric in ["val_ap", "val_f1", "val_f2"] else "min"
@@ -212,37 +203,59 @@ if __name__ == "__main__":
 
     search_scheduler = ASHAScheduler(
         time_attr="training_iteration",  # default
-        metric=args.metric,
-        mode=metric_optim_mode,
         max_t=100,  # default
         grace_period=18,
         reduction_factor=4,  # default
         brackets=1,  # default
         stop_last_trials=True,  # default
     )
-
+    
     reporter = CLIReporter(
         parameter_columns=args.params,
         metric_columns=[args.metric, "training_iteration"],
         print_intermediate_tables=False,
     )
-
-    analysis = tune.run(
-        tune.with_parameters(main, args=args),
-        resources_per_trial={"cpu": args.cpus_per_trial, "gpu": args.gpus_per_trial},
-        config=config,
+    
+    checkpoint_config = CheckpointConfig(
+        num_to_keep=1,
+        checkpoint_score_attribute=args.metric,
+        checkpoint_score_order=metric_optim_mode,
+    )
+    
+    tune_config=tune.TuneConfig(
+        metric=args.metric,
+        mode=metric_optim_mode,
         search_alg=search_alg,
         scheduler=search_scheduler,
         num_samples=args.num_trials,
         max_concurrent_trials=args.max_concurrent_trials,
-        name="e2e-version_%s" % (args.log_version),
-        storage_path=os.path.join(args.log_save_dir, args.model),
-        progress_reporter=reporter,
-        verbose=0,
-        trial_dirname_creator=short_dirname,
+        trial_name_creator=trial_name,
+        trial_dirname_creator=trial_dirname,
     )
-
+    
+    run_config = RunConfig(
+        name="e2e-version_%s" % (args.log_version),  
+        storage_path=os.path.join(args.log_save_dir, args.model),
+        checkpoint_config=checkpoint_config,
+        verbose=2,
+        progress_reporter=reporter,
+    )
+    
+    trainable = tune.with_resources(
+        trainable=tune.with_parameters(train, args=args),
+        resources={"cpu": args.cpus_per_trial, "gpu": args.gpus_per_trial},
+    )
+    
+    tuner = Tuner(
+        trainable=trainable,
+        param_space=config,
+        tune_config=tune_config,
+        run_config=run_config,
+    )
+    
+    result = tuner.fit()
+    
     print(
         "The best param values are: ",
-        analysis.get_best_config(metric=args.metric, mode=metric_optim_mode),
+        result.get_best_result(metric=args.metric, mode=metric_optim_mode),
     )
