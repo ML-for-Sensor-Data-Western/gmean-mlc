@@ -28,8 +28,6 @@ from lightning_datamodules import MultiLabelDataModule
 from lightning_model import MultiLabelModel
 from loss import HybridLoss
 
-torch.set_float32_matmul_precision("high")
-
 GLOBAL_CONFIG = {
     "batch_size": tune.choice([64, 128, 256]),
     "learning_rate": tune.choice([0.001, 0.01, 0.02, 0.03, 0.05, 0.075, 0.1]),
@@ -124,6 +122,7 @@ def train(config, args):
         enable_progress_bar=False,
     )
 
+    torch.set_float32_matmul_precision("medium")
     trainer.fit(light_model, dm)
 
 
