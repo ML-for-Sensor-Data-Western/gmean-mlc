@@ -1,4 +1,4 @@
-import pytorch_lightning as pl
+import lightning.pytorch as pl
 from torch.utils.data import DataLoader
 
 from dataloader import BinaryDataset, BinaryRelevanceDataset, MultiLabelDataset
@@ -71,6 +71,7 @@ class MultiLabelDataModule(pl.LightningDataModule):
             num_workers=self.workers,
             pin_memory=True,
             drop_last=True,
+            persistent_workers=True,
         )
         return train_dl
 
@@ -80,6 +81,7 @@ class MultiLabelDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.workers,
             pin_memory=True,
+            persistent_workers=True,
         )
         return val_dl
 

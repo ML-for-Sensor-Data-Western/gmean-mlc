@@ -1,13 +1,15 @@
 import os
 from argparse import ArgumentParser
+from typing import Optional
 
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import (
+import lightning.pytorch as pl
+import torch
+from lightning.pytorch.callbacks import (
+    EarlyStopping,
     LearningRateMonitor,
     ModelCheckpoint,
-    EarlyStopping,
 )
-from pytorch_lightning.loggers import TensorBoardLogger
+from lightning.pytorch.loggers import TensorBoardLogger
 from torchvision import transforms
 
 from lightning_datamodules import (
@@ -16,7 +18,6 @@ from lightning_datamodules import (
 )
 from lightning_model import MultiLabelModel
 from loss import HybridLoss
-from typing import Optional
 
 
 class CustomLogger(TensorBoardLogger):
@@ -103,6 +104,7 @@ def main(args):
         criterion=criterion,
         **vars(args),
     )
+    
 
     # train
     prefix = "{}-".format(args.training_mode)
