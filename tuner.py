@@ -178,7 +178,6 @@ def tune_parameters(args):
         scheduler=search_scheduler,
         num_samples=args.num_trials,
         max_concurrent_trials=args.max_concurrent_trials,
-        reuse_actors=True,
         trial_name_creator=trial_name,
         trial_dirname_creator=trial_dirname,
     )
