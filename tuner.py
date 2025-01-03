@@ -24,6 +24,8 @@ from ray.tune.schedulers import ASHAScheduler
 from ray.tune.search.optuna import OptunaSearch
 from torchvision import transforms
 
+from lightning.pytorch.loggers import TensorBoardLogger
+
 from lightning_datamodules import MultiLabelDataModule
 from lightning_model import MultiLabelModel
 from loss import HybridLoss
@@ -85,7 +87,6 @@ def train(config, args):
         only_defects=False,
     )
 
-    dm.prepare_data()
     dm.setup("fit")
 
     criterion = HybridLoss(
@@ -109,6 +110,11 @@ def train(config, args):
         lr_steps=args.lr_steps,
     )
     
+    logger = TensorBoardLogger(
+        save_dir=args.log_save_dir,
+        name=args.model,
+        version="e2e-version_" + str(args.log_version),
+    )
 
     tune_callback = TuneReportCheckpointCallback(
         metrics={args.metric: args.metric}, on="validation_end"
@@ -118,6 +124,7 @@ def train(config, args):
         precision=args.precision,
         max_epochs=args.max_epochs,
         benchmark=True,
+        logger=logger,
         callbacks=[tune_callback],
         enable_progress_bar=False,
     )
@@ -159,7 +166,7 @@ def tune_parameters(args):
     search_scheduler = ASHAScheduler(
         time_attr="training_iteration",  # default
         max_t=100,  # default
-        grace_period=18,
+        grace_period=32,
         reduction_factor=4,  # default
         brackets=1,  # default
         stop_last_trials=True,  # default
