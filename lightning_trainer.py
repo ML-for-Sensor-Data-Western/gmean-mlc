@@ -192,6 +192,7 @@ def main(args):
     )
 
     try:
+        torch.set_float32_matmul_precision(args.matmul_precision)
         if args.checkpoint is not None:
             trainer.fit(light_model, dm, ckpt_path=args.checkpoint)
         else:
@@ -233,7 +234,8 @@ def run_cli():
         default="e2e",
         choices=["e2e", "binary", "defect"],
     )
-    parser.add_argument("--precision", type=int, default=32, choices=[16, 32])
+    parser.add_argument("--precision", type=str, default='32', choices=['16-mixed', '32'])
+    parser.add_argument("--matmul_precision", type=str, default='highest', choices=['medium', 'high', 'highest'])
     parser.add_argument("--max_epochs", type=int, default=40)
     parser.add_argument("--learning_rate", type=float, default=0.1)
     parser.add_argument("--momentum", type=float, default=0.9)
