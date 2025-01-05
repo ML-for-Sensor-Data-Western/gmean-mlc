@@ -9,6 +9,9 @@ are stated in args.params.
 
 Refer https://docs.ray.io/en/latest/tune/examples/tune-pytorch-lightning.html#pytorch-lightning-classifier-for-mnist
 for onboarding ray train if each trial is a distributed training job.
+
+Set OMP_NUM_THREADS env variable before running tuner.
+export OMP_NUM_THREADS=16
 """
 
 import os
@@ -45,6 +48,9 @@ GLOBAL_CONFIG = {
 def train(config, args):
     # pl.seed_everything(1234567890)
     args_dict = vars(args)
+    
+    os.environ["OMP_NUM_THREADS"] = str(args.cpus_per_trial)
+    print("Setting OMP_NUM_THREADS: ", os.getenv("OMP_NUM_THREADS"))    
 
     hyperparameters = {}
     for hp_name in GLOBAL_CONFIG.keys():
@@ -161,7 +167,11 @@ def tune_parameters(args):
         "max" if args.metric in ["val_ap", "val_f1", "val_f2"] else "min"
     )
 
-    search_alg = OptunaSearch(metric=args.metric, mode=metric_optim_mode)
+    search_alg = OptunaSearch(
+        metric=args.metric, 
+        mode=metric_optim_mode,
+        points_to_evaluate=[{"meta_loss_weight": 0.1, "meta_loss_beta": 0.1}]
+    )
 
     search_scheduler = ASHAScheduler(
         time_attr="training_iteration",  # default
