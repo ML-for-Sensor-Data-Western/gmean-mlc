@@ -135,7 +135,7 @@ def train(config, args):
         enable_progress_bar=False,
     )
 
-    torch.set_float32_matmul_precision("medium")
+    torch.set_float32_matmul_precision(args.matmul_precision)
     trainer.fit(light_model, dm)
 
 
@@ -236,6 +236,7 @@ if __name__ == "__main__":
     parser.add_argument("--cpus_per_trial", type=int, default=16)
     parser.add_argument("--gpus_per_trial", type=int, default=1)
     parser.add_argument("--precision", type=str, default='16-mixed', choices=['16-mixed', '32'])
+    parser.add_argument("--matmul_precision", type=str, default='medium', choices=['medium', 'high', 'highest'])
     parser.add_argument("--max_epochs", type=int, default=40)
     parser.add_argument("--learning_rate", type=float, default=0.1)
     parser.add_argument("--momentum", type=float, default=0.9)
