@@ -124,7 +124,7 @@ def objective(trial: optuna.trial.Trial, args):
     tune_callback = PyTorchLightningPruningCallback(trial, monitor=args.metric)
     ckpt_callback = ModelCheckpoint(
         dirpath=logger_path,
-        filename=f"trial{trial.number:03}-"+"{epoch:03d}",
+        filename=f"trial{trial.number:03}-"+"{epoch:03d}"+f"-{args.metric}",
         save_top_k=1,
         save_last=False,
         verbose=False,
@@ -196,8 +196,6 @@ if __name__ == "__main__":
     parser.add_argument("--gpus", nargs="+", type=int, default=[0])
     parser.add_argument("--num_trials", type=int, default=50)
     parser.add_argument("--max_concurrent_trials", type=int, default=1)
-    parser.add_argument("--cpus_per_trial", type=int, default=16)
-    parser.add_argument("--gpus_per_trial", type=int, default=1)
     parser.add_argument("--pruning", action="store_true")
     parser.add_argument(
         "--precision", type=str, default="16-mixed", choices=["16-mixed", "32"]
