@@ -145,7 +145,7 @@ def objective(trial: optuna.trial.Trial, args):
     torch.set_float32_matmul_precision(args.matmul_precision)
     trainer.fit(light_model, dm)
 
-    return trainer.callback_metrics[args.metric].item()
+    return ckpt_callback.best_model_score
 
 
 def tune_parameters(args):
