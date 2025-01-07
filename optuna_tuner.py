@@ -7,6 +7,7 @@ Make sure the parameters which do not need to be tuned are properly defined in
 terminal args and the parameters to be tuned (must be a subset of GLOBAL_CONFIG)
 are stated in args.params.
 """
+
 import os
 from argparse import ArgumentParser
 from functools import partial
@@ -120,11 +121,11 @@ def objective(trial: optuna.trial.Trial, args):
     logger_path = os.path.join(
         args.log_save_dir, args.model, "e2e-version_" + str(args.log_version)
     )
-    
+
     tune_callback = PyTorchLightningPruningCallback(trial, monitor=args.metric)
     ckpt_callback = ModelCheckpoint(
         dirpath=logger_path,
-        filename=f"trial{trial.number:03}-"+"{epoch:03d}"+f"-{args.metric}",
+        filename=f"trial{trial.number:03}-" + "{epoch:03d}" + f"-{args.metric}",
         save_top_k=1,
         save_last=False,
         verbose=False,
@@ -149,12 +150,13 @@ def objective(trial: optuna.trial.Trial, args):
 
 
 def tune_parameters(args):
-    
-    sampler = optuna.samplers.TPESampler(seed=12345)
+    sampler = optuna.samplers.TPESampler(n_startup_trials=5, seed=12345)
     pruner = (
         optuna.pruners.MedianPruner(
             n_startup_trials=5, n_warmup_steps=32, interval_steps=2, n_min_trials=5
-        ) if args.pruning else optuna.pruners.NopPruner()
+        )
+        if args.pruning
+        else optuna.pruners.NopPruner()
     )
 
     metric_optim_mode = (
