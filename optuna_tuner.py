@@ -1,11 +1,10 @@
 """
 Tuning selected parameters using Optuna.
 
-The parameters in GLOBAL_CONFIG are the total hyperparameters that can be tuned.
+The parameters in objective() are the total hyperparameters that can be tuned.
 The same parameters are in terminal args as well.
 Make sure the parameters which do not need to be tuned are properly defined in
-terminal args and the parameters to be tuned (must be a subset of GLOBAL_CONFIG)
-are stated in args.params.
+terminal args and the parameters to be tuned are stated in args.params.
 """
 
 import os
@@ -29,26 +28,29 @@ def objective(trial: optuna.trial.Trial, args):
     # pl.seed_everything(1234567890)
 
     params = {
-        "batch_size": trial.suggest_categorical("batch_size", [64, 128, 256])
+        "batch_size": trial.suggest_categorical("batch_size", [256, 512])
         if "batch_size" in args.params
         else args.batch_size,
-        "learning_rate": trial.suggest_float("learning_rate", 0.001, 0.1)
+        "learning_rate": trial.suggest_categorical("learning_rate", [0.01, 0.05, 0.1])
         if "learning_rate" in args.params
         else args.learning_rate,
-        "lr_decay": trial.suggest_float("lr_decay", 0.01, 0.1)
+        "lr_decay": trial.suggest_categorical("lr_decay", [0.01, 0.05, 0.1])
         if "lr_decay" in args.params
         else args.lr_decay,
-        "momentum": trial.suggest_float("momentum", 0.5, 0.9)
+        "momentum": trial.suggest_categorical("momentum", [0.7, 0.8, 0.9])
         if "momentum" in args.params
         else args.momentum,
         "weight_decay": trial.suggest_float("weight_decay", 0.0001, 0.001)
         if "weight_decay" in args.params
         else args.weight_decay,
         "class_balancing_beta": trial.suggest_categorical(
-            "class_balancing_beta", [0.9, 0.99, 0.999, 0.9999]
+            "class_balancing_beta", [0.9, 0.99, 0.999, 0.9999, 0.99999]
         )
         if "class_balancing_beta" in args.params
         else args.class_balancing_beta,
+        "mtl_heads": trial.suggest_categorical("mtl_heads", [True, False]) 
+        if "mtl_heads" in args.params
+        else args.mtl_heads,
         "meta_loss_weight": trial.suggest_float("meta_loss_weight", 0.0, 1.0)
         if "meta_loss_weight" in args.params
         else args.meta_loss_weight,
@@ -103,6 +105,7 @@ def objective(trial: optuna.trial.Trial, args):
 
     light_model = MultiLabelModel(
         model=args.model,
+        mtl_heads=params["mtl_heads"],
         num_classes=dm.num_classes,
         criterion=criterion,
         learning_rate=params["learning_rate"],
@@ -153,7 +156,7 @@ def tune_parameters(args):
     sampler = optuna.samplers.TPESampler(n_startup_trials=5, seed=12345)
     pruner = (
         optuna.pruners.MedianPruner(
-            n_startup_trials=5, n_warmup_steps=32, interval_steps=2, n_min_trials=5
+            n_startup_trials=5, n_warmup_steps=22, interval_steps=4, n_min_trials=5
         )
         if args.pruning
         else optuna.pruners.NopPruner()
