@@ -28,7 +28,7 @@ class CustomLogger(TensorBoardLogger):
 
 
 def main(args):
-    # pl.seed_everything(1234567890)
+    pl.seed_everything(1234567890)
 
     # Init data with transforms
     img_size = 299 if args.model in ["inception_v3", "chen2018_multilabel"] else 224

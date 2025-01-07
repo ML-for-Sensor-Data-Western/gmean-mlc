@@ -25,7 +25,7 @@ from loss import HybridLoss
 
 
 def objective(trial: optuna.trial.Trial, args):
-    # pl.seed_everything(1234567890)
+    pl.seed_everything(1234567890)
 
     params = {
         "batch_size": trial.suggest_categorical("batch_size", [256, 512])

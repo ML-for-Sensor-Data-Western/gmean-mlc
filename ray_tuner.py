@@ -48,7 +48,7 @@ GLOBAL_CONFIG = {
 
 
 def train(config, args):
-    # pl.seed_everything(1234567890)
+    pl.seed_everything(1234567890)
     args_dict = vars(args)
     
     os.environ["OMP_NUM_THREADS"] = str(args.cpus_per_trial)
