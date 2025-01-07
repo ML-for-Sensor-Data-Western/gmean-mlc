@@ -12,6 +12,8 @@ for onboarding ray train if each trial is a distributed training job.
 
 Set OMP_NUM_THREADS env variable before running tuner.
 export OMP_NUM_THREADS=16
+
+ToDO: Training is at least 10X slow with Ray Tune. To investigate and fix
 """
 
 import os
