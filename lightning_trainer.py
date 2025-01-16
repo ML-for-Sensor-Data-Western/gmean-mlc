@@ -9,7 +9,7 @@ from lightning.pytorch.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
 )
-from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch.loggers import WandbLogger
 from torchvision import transforms
 
 from lightning_datamodules import (
@@ -19,8 +19,10 @@ from lightning_datamodules import (
 from lightning_model import MultiLabelModel
 from loss import HybridLoss
 
+WANDB_PROJECT_NAME = "gmean-mlc"
 
-class CustomLogger(TensorBoardLogger):
+
+class CustomLogger(WandbLogger):
     def log_metrics(self, metrics, step=None):
         if "epoch" in metrics:
             step = metrics["epoch"]
@@ -104,20 +106,27 @@ def main(args):
         criterion=criterion,
         **vars(args),
     )
-    
 
-    # train
-    prefix = "{}-".format(args.training_mode)
+    logger_path = os.path.join(args.log_save_dir, "version_" + str(args.log_version))
+
+    if not os.path.exists(logger_path):
+        os.makedirs(logger_path)
 
     logger = CustomLogger(
-        save_dir=args.log_save_dir,
-        name=args.model,
-        version=prefix + "version_" + str(args.log_version),
+        name="version_" + str(args.log_version),
+        save_dir=logger_path,
+        version=str(args.log_version),
+        project=WANDB_PROJECT_NAME,
+        log_model=True,
     )
 
-    logger_path = os.path.join(
-        args.log_save_dir, args.model, prefix + "version_" + str(args.log_version)
-    )
+    logger.experiment.config.update(vars(args))
+
+    for metric, direction in zip(
+        ["val_ap", "val_f1", "val_f2", "val_bce", "val_loss"],
+        ["max", "max", "max", "min", "min"],
+    ):
+        logger.experiment.define_metric(metric, summary=direction)
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=logger_path,
@@ -234,8 +243,15 @@ def run_cli():
         default="e2e",
         choices=["e2e", "binary", "defect"],
     )
-    parser.add_argument("--precision", type=str, default='32', choices=['16-mixed', '32'])
-    parser.add_argument("--matmul_precision", type=str, default='highest', choices=['medium', 'high', 'highest'])
+    parser.add_argument(
+        "--precision", type=str, default="32", choices=["16-mixed", "32"]
+    )
+    parser.add_argument(
+        "--matmul_precision",
+        type=str,
+        default="highest",
+        choices=["medium", "high", "highest"],
+    )
     parser.add_argument("--max_epochs", type=int, default=40)
     parser.add_argument("--learning_rate", type=float, default=0.1)
     parser.add_argument("--momentum", type=float, default=0.9)
