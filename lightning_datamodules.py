@@ -1,7 +1,7 @@
 import lightning.pytorch as pl
 from torch.utils.data import DataLoader
 
-from dataloader import BinaryDataset, BinaryRelevanceDataset, MultiLabelDataset
+from dataset_sewer import BinaryDataset, BinaryRelevanceDataset, MultiLabelDataset
 
 
 class MultiLabelDataModule(pl.LightningDataModule):

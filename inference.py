@@ -7,7 +7,7 @@ from collections import OrderedDict
 import pandas as pd
 import torch
 
-from dataloader import MultiLabelDatasetInference
+from dataset_sewer import MultiLabelDatasetInference
 from torch.utils.data import DataLoader
 
 import torch.nn as nn
