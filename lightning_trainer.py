@@ -9,6 +9,7 @@ from lightning.pytorch.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
 )
+import wandb
 from lightning.pytorch.loggers import WandbLogger
 from torchvision import transforms
 
@@ -114,6 +115,7 @@ def main(args):
 
     logger = CustomLogger(
         name="version_" + str(args.log_version),
+        id = wandb.util.generate_id(),
         save_dir=logger_path,
         version=str(args.log_version),
         project=WANDB_PROJECT_NAME,
