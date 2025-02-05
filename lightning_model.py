@@ -54,7 +54,7 @@ class MultiLabelModel(pl.LightningModule):
         self.num_classes = num_classes
 
         if model in MultiLabelModel.TORCHVISION_MODEL_NAMES:
-            self.model = torch_models.__dict__[model](num_classes=self.num_classes, mtl_heads=mtl_heads)
+            self.model = torch_models.__dict__[model](num_classes=self.num_classes)
         elif model in MultiLabelModel.SEWER_MODEL_NAMES:
             self.model = sewer_models.__dict__[model](num_classes=self.num_classes, mtl_heads=mtl_heads)
         elif model in MultiLabelModel.MULTILABEL_MODEL_NAMES:
