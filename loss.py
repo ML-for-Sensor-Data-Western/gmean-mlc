@@ -1,8 +1,7 @@
-from typing import Literal, Optional, Literal
+from typing import Literal, Optional
 
 import torch
 import torch.nn.functional as F
-from torchvision.ops import sigmoid_focal_loss
 
 
 class HybridLoss(torch.nn.Module):
@@ -14,15 +13,17 @@ class HybridLoss(torch.nn.Module):
         base_loss: Literal["bce", "focal"] = "focal",
         focal_gamma: float = 2.0,
         meta_loss_weight: float = 1.0,
-        meta_loss_beta: float = 0.1
+        meta_loss_beta: float = 0.1,
     ):
         super().__init__()
-        self.defect_class_weights, self.normal_weight = self._get_class_weights(class_counts, normal_count, class_balancing_beta)
+        self.defect_class_weights, self.normal_weight = self._get_class_weights(
+            class_counts, normal_count, class_balancing_beta
+        )
         self.base_loss = base_loss
         self.focal_gamma = focal_gamma
         self.meta_loss_weight = meta_loss_weight
         self.meta_loss_beta = meta_loss_beta
-        
+
         if base_loss not in ["bce", "focal"]:
             raise ValueError(f"Invalid base_loss '{base_loss}'")
 
@@ -56,13 +57,13 @@ class HybridLoss(torch.nn.Module):
                 -gamma * targets * logits
                 - gamma * torch.log(1 + torch.exp(-1.0 * logits))
             )
-        
+
         loss = modulator * ce_loss
 
         if alpha >= 0:
             alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
             loss = alpha_t * loss
-        
+
         # Check reduction option and return loss accordingly
         if reduction == "none":
             pass
@@ -94,7 +95,7 @@ class HybridLoss(torch.nn.Module):
         effective_num = 1.0 - torch.pow(beta, all_class_counts)
         all_weights = (1.0 - beta) / effective_num
         all_weights = all_weights / torch.sum(all_weights) * len(all_class_counts)
-        
+
         class_weights = all_weights[:-1]
         normal_weight = all_weights[-1]
 
@@ -116,12 +117,13 @@ class HybridLoss(torch.nn.Module):
         weights = weights.unsqueeze(0)  # (1, num_classes)
         weights = weights.expand(targets.shape[0], -1)  # (batch_size, num_classes)
         weights = torch.sum(weights * targets, 1, keepdim=True)  # (batch_size, 1)
-        weights[weights == 0] = normal_weight # set normal class weight
+        weights[weights == 0] = normal_weight  # set normal class weight
 
         return weights
 
     def _calculate_multi_label_loss(
-        self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        self, logits: torch.Tensor, targets: torch.Tensor
+    ) -> torch.Tensor:
         """
         Calculate the multi-label loss for a batch of predictions and targets.
         Args:
@@ -135,7 +137,6 @@ class HybridLoss(torch.nn.Module):
                 logits, targets, reduction="none"
             )
         else:
-            # defect_type_loss = sigmoid_focal_loss(
             defect_type_loss = self._calculate_stable_focal_loss(
                 logits, targets, alpha=-1, gamma=self.focal_gamma, reduction="none"
             )
@@ -174,7 +175,6 @@ class HybridLoss(torch.nn.Module):
                 meta_logits, meta_targets, reduction="none"
             )
         else:
-            # meta_loss = sigmoid_focal_loss(
             meta_loss = self._calculate_stable_focal_loss(
                 meta_logits,
                 meta_targets,
@@ -190,13 +190,13 @@ class HybridLoss(torch.nn.Module):
         defect_type_loss = torch.sum(defect_type_loss, 1, keepdim=True)
 
         meta_loss = self._calculate_meta_loss(logits, targets)
-        
+
         final_loss = defect_type_loss + self.meta_loss_weight * meta_loss
-        
+
         balancing_weights = self._calculate_batch_balancing_weights(
             self.defect_class_weights, self.normal_weight, targets
         )  # (bs, 1)
-        
+
         normal_target = 1 - torch.sum(targets, 1, True).clamp(0, 1)  # (bs, 1)
         # loss_denominator = torch.sum(targets, 1, keepdim=True) + normal_target
         # final_loss = torch.mean(
