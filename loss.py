@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Literal, Optional, Literal
 
 import torch
 import torch.nn.functional as F
@@ -27,7 +27,59 @@ class HybridLoss(torch.nn.Module):
             raise ValueError(f"Invalid base_loss '{base_loss}'")
 
     @staticmethod
-    def _get_class_weights(class_counts: torch.Tensor, normal_count: float, beta: float) -> torch.Tensor:
+    def _calculate_stable_focal_loss(
+        logits: torch.Tensor,
+        targets: torch.Tensor,
+        alpha: float = -1,
+        gamma: float = 2.0,
+        reduction: Literal["sum", "mean", "none"] = "none",
+    ) -> torch.Tensor:
+        """
+        Calculate the optimization-stable focal loss for a batch of predictions and targets.
+        Ref: https://github.com/vandit15/Class-balanced-loss-pytorch/blob/master/class_balanced_loss.py
+        Ref: https://github.com/fcakyon/balanced-loss/blob/main/balanced_loss/losses.py
+        Args:
+            logits (torch.Tensor): logit scores for each class (batch_size, num_classes).
+            targets (torch.Tensor): ground truth binary labels for each class (batch_size, num_classes).
+            alpha (float): Weighting factor in range (0,1) to balance positive vs negative examples or -1 for ignore. Default: ``-1`` We wont weight here.
+            gamma (float): Exponent of the modulating factor (1 - p_t) to balance easy vs hard examples. Default: ``2``.
+            reduction (string): ``'none'`` | ``'mean'`` | ``'sum'``
+        Returns:
+            torch.Tensor: Loss tensor with chosen reduction
+        """
+        ce_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction="none")
+
+        if gamma == 0:
+            modulator = 1.0
+        else:
+            modulator = torch.exp(
+                -gamma * targets * logits
+                - gamma * torch.log(1 + torch.exp(-1.0 * logits))
+            )
+        
+        loss = modulator * ce_loss
+
+        if alpha >= 0:
+            alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
+            loss = alpha_t * loss
+        
+        # Check reduction option and return loss accordingly
+        if reduction == "none":
+            pass
+        elif reduction == "mean":
+            loss = loss.mean()
+        elif reduction == "sum":
+            loss = loss.sum()
+        else:
+            raise ValueError(
+                f"Invalid Value for arg 'reduction': '{reduction} \n Supported reduction modes: 'none', 'mean', 'sum'"
+            )
+        return loss
+
+    @staticmethod
+    def _get_class_weights(
+        class_counts: torch.Tensor, normal_count: float, beta: float
+    ) -> torch.Tensor:
         """
         Calculate class weights using the effective number of samples method.
         Args:
@@ -81,9 +133,10 @@ class HybridLoss(torch.nn.Module):
         if self.base_loss == "bce":
             defect_type_loss = F.binary_cross_entropy_with_logits(
                 logits, targets, reduction="none"
-            ) 
+            )
         else:
-            defect_type_loss = sigmoid_focal_loss(
+            # defect_type_loss = sigmoid_focal_loss(
+            defect_type_loss = self._calculate_stable_focal_loss(
                 logits, targets, alpha=-1, gamma=self.focal_gamma, reduction="none"
             )
 
@@ -94,7 +147,7 @@ class HybridLoss(torch.nn.Module):
     ) -> torch.Tensor:
         """
         Calculate the meta loss for defect detection.
-        the meta node consists of weighted nodes for the defect that are present in the image, 
+        the meta node consists of weighted nodes for the defect that are present in the image,
         or all nodes if the image is normal (no defect).
 
         Args:
@@ -121,8 +174,13 @@ class HybridLoss(torch.nn.Module):
                 meta_logits, meta_targets, reduction="none"
             )
         else:
-            meta_loss = sigmoid_focal_loss(
-                meta_logits, meta_targets, alpha=-1, gamma=self.focal_gamma, reduction="none"
+            # meta_loss = sigmoid_focal_loss(
+            meta_loss = self._calculate_stable_focal_loss(
+                meta_logits,
+                meta_targets,
+                alpha=-1,
+                gamma=self.focal_gamma,
+                reduction="none",
             )
 
         return meta_loss
@@ -137,9 +195,9 @@ class HybridLoss(torch.nn.Module):
         
         balancing_weights = self._calculate_batch_balancing_weights(
             self.defect_class_weights, self.normal_weight, targets
-        ) # (bs, 1)
+        )  # (bs, 1)
         
-        normal_target = 1 - torch.sum(targets, 1, True).clamp(0, 1) # (bs, 1)
+        normal_target = 1 - torch.sum(targets, 1, True).clamp(0, 1)  # (bs, 1)
         # loss_denominator = torch.sum(targets, 1, keepdim=True) + normal_target
         # final_loss = torch.mean(
         #     final_loss * balancing_weights / loss_denominator
