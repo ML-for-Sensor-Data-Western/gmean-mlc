@@ -2,6 +2,7 @@ from typing import Literal, Optional
 
 import torch
 import torch.nn.functional as F
+from torchvision.ops import sigmoid_focal_loss
 
 
 class HybridLoss(torch.nn.Module):
@@ -137,7 +138,8 @@ class HybridLoss(torch.nn.Module):
                 logits, targets, reduction="none"
             )
         else:
-            defect_type_loss = self._calculate_stable_focal_loss(
+            defect_type_loss = sigmoid_focal_loss(
+            # defect_type_loss = self._calculate_stable_focal_loss(
                 logits, targets, alpha=-1, gamma=self.focal_gamma, reduction="none"
             )
 
@@ -175,7 +177,8 @@ class HybridLoss(torch.nn.Module):
                 meta_logits, meta_targets, reduction="none"
             )
         else:
-            meta_loss = self._calculate_stable_focal_loss(
+            meta_loss = sigmoid_focal_loss(
+            # meta_loss = self._calculate_stable_focal_loss(
                 meta_logits,
                 meta_targets,
                 alpha=-1,
