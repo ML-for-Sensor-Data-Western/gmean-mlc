@@ -122,7 +122,7 @@ def main(args):
         log_model=True,
     )
 
-    logger.experiment.config.update(vars(args))
+    logger.experiment.config.update(vars(args), allow_val_change=True)
 
     for metric, direction in zip(
         ["val_ap", "val_f1", "val_f2", "val_bce", "val_loss"],
