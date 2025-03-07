@@ -24,7 +24,7 @@ class MultiLabelDataset(Dataset):
         self.onlyDefects = onlyDefects
 
         self.num_classes = len(self.LabelNames)
-        self.img_paths, self.labels, self.class_counts, self.defect_count = self._load_annotations()
+        self.img_paths, self.labels, self.class_counts, self.any_class_count = self._load_annotations()
         self.num_samples = len(self.img_paths)
 
     def _load_annotations(self):

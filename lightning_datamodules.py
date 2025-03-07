@@ -2,11 +2,13 @@ import lightning.pytorch as pl
 from torch.utils.data import DataLoader
 
 from dataset_sewer import BinaryDataset, BinaryRelevanceDataset, MultiLabelDataset
+from dataset_coco import MultiLabelDatasetCoco
 
 
 class MultiLabelDataModule(pl.LightningDataModule):
     def __init__(
         self,
+        dataset="sewer",
         batch_size=32,
         workers=4,
         ann_root="./annotations",
@@ -16,6 +18,7 @@ class MultiLabelDataModule(pl.LightningDataModule):
         eval_transform=None,
     ):
         super().__init__()
+        self.dataset = dataset
         self.batch_size = batch_size
         self.workers = workers
         self.ann_root = ann_root
@@ -32,15 +35,22 @@ class MultiLabelDataModule(pl.LightningDataModule):
     # OPTIONAL, called for every GPU/machine (assigning state is OK)
     def setup(self, stage):
         # split dataset
+        if self.dataset == "sewer":
+            dataset_cls = MultiLabelDataset
+        elif self.dataset == "coco":
+            dataset_cls = MultiLabelDatasetCoco
+        else:
+            raise ValueError(f"Invalid dataset '{self.dataset}'")
+        
         if stage == "fit":
-            self.train_dataset = MultiLabelDataset(
+            self.train_dataset = dataset_cls(
                 self.ann_root,
                 self.data_root,
                 split="Train",
                 transform=self.train_transform,
                 onlyDefects=self.only_defects,
             )
-            self.val_dataset = MultiLabelDataset(
+            self.val_dataset = dataset_cls(
                 self.ann_root,
                 self.data_root,
                 split="Val",
@@ -48,7 +58,7 @@ class MultiLabelDataModule(pl.LightningDataModule):
                 onlyDefects=self.only_defects,
             )
         if stage == "test":
-            self.test_dataset = MultiLabelDataset(
+            self.test_dataset = dataset_cls(
                 self.ann_root,
                 self.data_root,
                 split="Test",
@@ -59,8 +69,7 @@ class MultiLabelDataModule(pl.LightningDataModule):
         self.num_classes = self.train_dataset.num_classes
         self.num_train_samples = self.train_dataset.num_samples
         self.class_counts = self.train_dataset.class_counts
-        self.defect_count = self.train_dataset.defect_count
-        self.LabelNames = self.train_dataset.LabelNames
+        self.any_class_count = self.train_dataset.any_class_count
 
     # return the dataloader for each split
     def train_dataloader(self):
