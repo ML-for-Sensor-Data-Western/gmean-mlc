@@ -1,15 +1,44 @@
 import os
-import pandas as pd
-import numpy as np
 
+import numpy as np
+import pandas as pd
 import torch
 from torch.utils.data import Dataset
 from torchvision.datasets.folder import default_loader
 
-Labels = ["RB","OB","PF","DE","FS","IS","RO","IN","AF","BE","FO","GR","PH","PB","OS","OP","OK", "VA", "ND"]
+Labels = [
+    "RB",
+    "OB",
+    "PF",
+    "DE",
+    "FS",
+    "IS",
+    "RO",
+    "IN",
+    "AF",
+    "BE",
+    "FO",
+    "GR",
+    "PH",
+    "PB",
+    "OS",
+    "OP",
+    "OK",
+    "VA",
+    "ND",
+]
+
 
 class MultiLabelDataset(Dataset):
-    def __init__(self, annRoot, imgRoot, split="Train", transform=None, loader=default_loader, onlyDefects=False):
+    def __init__(
+        self,
+        annRoot,
+        imgRoot,
+        split="Train",
+        transform=None,
+        loader=default_loader,
+        onlyDefects=False,
+    ):
         super(MultiLabelDataset, self).__init__()
         self.imgRoot = imgRoot
         self.annRoot = annRoot
@@ -24,24 +53,31 @@ class MultiLabelDataset(Dataset):
         self.onlyDefects = onlyDefects
 
         self.num_classes = len(self.LabelNames)
-        self.img_paths, self.labels, self.class_counts, self.defect_count = self._load_annotations()
+        self.img_paths, self.labels, self.class_counts, self.any_class_count = (
+            self._load_annotations()
+        )
         self.num_samples = len(self.img_paths)
 
     def _load_annotations(self):
         gtPath = os.path.join(self.annRoot, "SewerML_{}.csv".format(self.split))
-        gt = pd.read_csv(gtPath, sep=",", encoding="utf-8", usecols = self.LabelNames + ["Filename", "Defect"])
+        gt = pd.read_csv(
+            gtPath,
+            sep=",",
+            encoding="utf-8",
+            usecols=self.LabelNames + ["Filename", "Defect"],
+        )
 
         if self.onlyDefects:
             gt = gt[gt["Defect"] == 1]
 
         img_paths = gt["Filename"].values
         labels = gt[self.LabelNames].values
-        
+
         class_counts = self._get_class_counts(labels)
         defect_count = self._get_defect_count(gt)
-        
+
         return img_paths, labels, class_counts, defect_count
-        
+
     def __len__(self):
         return len(self.img_paths)
 
@@ -59,11 +95,11 @@ class MultiLabelDataset(Dataset):
     def _get_class_counts(self, labels: pd.DataFrame):
         """Count the number of samples for each class"""
         class_counts = [
-            len(labels[labels[:,defect_idx] == 1])
+            len(labels[labels[:, defect_idx] == 1])
             for defect_idx in range(self.num_classes)
         ]
         return torch.as_tensor(np.array(class_counts))
-    
+
     def _get_defect_count(self, gt: pd.DataFrame):
         """Count the number of samples with defects"""
         # new column of 1 if any column has 1, 0 otherwise
@@ -72,7 +108,15 @@ class MultiLabelDataset(Dataset):
 
 
 class MultiLabelDatasetInference(Dataset):
-    def __init__(self, annRoot, imgRoot, split="Train", transform=None, loader=default_loader, onlyDefects=False):
+    def __init__(
+        self,
+        annRoot,
+        imgRoot,
+        split="Train",
+        transform=None,
+        loader=default_loader,
+        onlyDefects=False,
+    ):
         super(MultiLabelDatasetInference, self).__init__()
         self.imgRoot = imgRoot
         self.annRoot = annRoot
@@ -92,10 +136,10 @@ class MultiLabelDatasetInference(Dataset):
 
     def loadAnnotations(self):
         gtPath = os.path.join(self.annRoot, "SewerML_{}.csv".format(self.split))
-        gt = pd.read_csv(gtPath, sep=",", encoding="utf-8", usecols = ["Filename"])
+        gt = pd.read_csv(gtPath, sep=",", encoding="utf-8", usecols=["Filename"])
 
         self.img_paths = gt["Filename"].values
-        
+
     def __len__(self):
         return len(self.img_paths)
 
@@ -110,7 +154,15 @@ class MultiLabelDatasetInference(Dataset):
 
 
 class BinaryRelevanceDataset(Dataset):
-    def __init__(self, annRoot, imgRoot, split="Train", transform=None, loader=default_loader, defect=None):
+    def __init__(
+        self,
+        annRoot,
+        imgRoot,
+        split="Train",
+        transform=None,
+        loader=default_loader,
+        defect=None,
+    ):
         super(BinaryRelevanceDataset, self).__init__()
         self.imgRoot = imgRoot
         self.annRoot = annRoot
@@ -133,11 +185,13 @@ class BinaryRelevanceDataset(Dataset):
 
     def loadAnnotations(self):
         gtPath = os.path.join(self.annRoot, "SewerML_{}.csv".format(self.split))
-        gt = pd.read_csv(gtPath, sep=",", encoding="utf-8", usecols = ["Filename", self.defect])
+        gt = pd.read_csv(
+            gtPath, sep=",", encoding="utf-8", usecols=["Filename", self.defect]
+        )
 
         self.img_paths = gt["Filename"].values
-        self.labels =  gt[self.defect].values.reshape(self.img_paths.shape[0], 1)
-        
+        self.labels = gt[self.defect].values.reshape(self.img_paths.shape[0], 1)
+
     def __len__(self):
         return len(self.img_paths)
 
@@ -155,13 +209,15 @@ class BinaryRelevanceDataset(Dataset):
     def getClassWeights(self):
         pos_count = len(self.labels[self.labels == 1])
         neg_count = self.labels.shape[0] - pos_count
-        class_weight = np.asarray([neg_count/pos_count])
+        class_weight = np.asarray([neg_count / pos_count])
 
         return torch.as_tensor(class_weight)
 
 
 class BinaryDataset(Dataset):
-    def __init__(self, annRoot, imgRoot, split="Train", transform=None, loader=default_loader):
+    def __init__(
+        self, annRoot, imgRoot, split="Train", transform=None, loader=default_loader
+    ):
         super(BinaryDataset, self).__init__()
         self.imgRoot = imgRoot
         self.annRoot = annRoot
@@ -177,12 +233,14 @@ class BinaryDataset(Dataset):
 
     def loadAnnotations(self):
         gtPath = os.path.join(self.annRoot, "SewerML_{}.csv".format(self.split))
-        gt = pd.read_csv(gtPath, sep=",", encoding="utf-8", usecols = ["Filename", "Defect"])
+        gt = pd.read_csv(
+            gtPath, sep=",", encoding="utf-8", usecols=["Filename", "Defect"]
+        )
 
         self.img_paths = gt["Filename"].values
-        self.labels =  gt["Defect"].values.reshape(self.img_paths.shape[0], 1)
+        self.labels = gt["Defect"].values.reshape(self.img_paths.shape[0], 1)
         print(self.labels.shape)
-        
+
     def __len__(self):
         return len(self.img_paths)
 
@@ -200,27 +258,44 @@ class BinaryDataset(Dataset):
     def getClassWeights(self):
         pos_count = len(self.labels[self.labels == 1])
         neg_count = self.labels.shape[0] - pos_count
-        class_weight = np.asarray([neg_count/pos_count])
+        class_weight = np.asarray([neg_count / pos_count])
 
         return torch.as_tensor(class_weight)
 
 
 if __name__ == "__main__":
-    from torch.utils.data import DataLoader
     import torchvision.transforms as transforms
+    from torch.utils.data import DataLoader
 
-    
     transform = transforms.Compose(
-        [transforms.Resize((224,224)),
-        transforms.ToTensor()])
+        [transforms.Resize((224, 224)), transforms.ToTensor()]
+    )
 
-    
-    train = MultiLabelDataset(annRoot="./annotations", imgRoot="./Data", split="Train", transform=transform)
-    train_defect = MultiLabelDataset(annRoot="./annotations", imgRoot="./Data", split="Train", transform=transform, onlyDefects=True)
-    binary_train = BinaryDataset(annRoot="./annotations", imgRoot="./Data", split="Train", transform=transform)
-    binary_relevance_train = BinaryRelevanceDataset(annRoot="./annotations", imgRoot="./Data", split="Train", transform=transform, defect="RB")
+    train = MultiLabelDataset(
+        annRoot="./annotations", imgRoot="./Data", split="Train", transform=transform
+    )
+    train_defect = MultiLabelDataset(
+        annRoot="./annotations",
+        imgRoot="./Data",
+        split="Train",
+        transform=transform,
+        onlyDefects=True,
+    )
+    binary_train = BinaryDataset(
+        annRoot="./annotations", imgRoot="./Data", split="Train", transform=transform
+    )
+    binary_relevance_train = BinaryRelevanceDataset(
+        annRoot="./annotations",
+        imgRoot="./Data",
+        split="Train",
+        transform=transform,
+        defect="RB",
+    )
 
     print(len(train), len(train_defect), len(binary_train), len(binary_relevance_train))
-    print(train.class_counts, train_defect.class_counts, binary_train.class_weights, binary_relevance_train.class_weights)
-
-    
+    print(
+        train.class_counts,
+        train_defect.class_counts,
+        binary_train.class_weights,
+        binary_relevance_train.class_weights,
+    )

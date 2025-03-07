@@ -58,6 +58,7 @@ def main(args):
 
     if args.training_mode == "e2e":
         dm = MultiLabelDataModule(
+            dataset=args.dataset,
             batch_size=args.batch_size,
             workers=args.workers,
             ann_root=args.ann_root,
@@ -68,6 +69,7 @@ def main(args):
         )
     elif args.training_mode == "defect":
         dm = MultiLabelDataModule(
+            dataset=args.dataset,
             batch_size=args.batch_size,
             workers=args.workers,
             ann_root=args.ann_root,
@@ -94,7 +96,7 @@ def main(args):
     # Init model
     criterion = HybridLoss(
         class_counts=dm.class_counts,
-        normal_count=dm.num_train_samples - dm.defect_count,
+        normal_count=dm.num_train_samples - dm.any_class_count,
         class_balancing_beta=args.class_balancing_beta,
         base_loss=args.base_loss,
         focal_gamma=args.focal_gamma,
@@ -118,7 +120,7 @@ def main(args):
         id = wandb.util.generate_id(),
         save_dir=logger_path,
         version=str(args.log_version),
-        project=WANDB_PROJECT_NAME,
+        project=args.wandb_project,
         log_model=True,
     )
 
@@ -232,6 +234,8 @@ def main(args):
 def run_cli():
     # add PROGRAM level args
     parser = ArgumentParser()
+    parser.add_argument("--wandb_project", type=str, default=WANDB_PROJECT_NAME)
+    parser.add_argument("--dataset", type=str, default="sewer", choices=["sewer", "coco"])
     parser.add_argument("--ann_root", type=str, default="./annotations")
     parser.add_argument("--data_root", type=str, default="./Data")
     parser.add_argument("--workers", type=int, default=4)

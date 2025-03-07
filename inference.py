@@ -8,6 +8,7 @@ import pandas as pd
 import torch
 
 from dataset_sewer import MultiLabelDatasetInference
+from dataset_coco import MultiLabelDatasetInferenceCoco
 from torch.utils.data import DataLoader
 
 import torch.nn as nn
@@ -119,8 +120,15 @@ def run_inference(args):
             transforms.Normalize(mean=[0.523, 0.453, 0.345], std=[0.210, 0.199, 0.154])
         ])
     
+    if args["dataset"] == "sewer":
+        dataset_infer_class = MultiLabelDatasetInference
+    elif args["dataset"] == "coco":
+        dataset_infer_class = MultiLabelDatasetInferenceCoco
+    else:
+        raise ValueError(f"Invalid dataset '{args['dataset']}'")
+    
     for split in splits:
-        dataset = MultiLabelDatasetInference(ann_root, data_root, split=split, transform=eval_transform, onlyDefects=False)
+        dataset = dataset_infer_class(ann_root, data_root, split=split, transform=eval_transform, onlyDefects=False)
         dataloader = DataLoader(dataset, batch_size=args["batch_size"], num_workers = args["workers"], pin_memory=True)
         
         labelNames = dataset.LabelNames
@@ -144,6 +152,7 @@ def run_inference(args):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
+    parser.add_argument("--dataset", type=str, default="sewer", choices=["sewer", "coco"])
     parser.add_argument('--ann_root', type=str, default='./annotations')
     parser.add_argument('--data_root', type=str, default='./Data')
     parser.add_argument('--batch_size', type=int, default=512, help="Size of the batch per GPU")

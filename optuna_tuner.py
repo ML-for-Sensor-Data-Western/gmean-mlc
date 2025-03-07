@@ -95,7 +95,7 @@ def objective(trial: optuna.trial.Trial, args):
 
     criterion = HybridLoss(
         class_counts=dm.class_counts,
-        normal_count=dm.num_train_samples - dm.defect_count,
+        normal_count=dm.num_train_samples - dm.any_class_count,
         class_balancing_beta=params["class_balancing_beta"],
         base_loss=args.base_loss,
         focal_gamma=args.focal_gamma,
