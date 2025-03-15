@@ -144,8 +144,30 @@ class HybridLoss(torch.nn.Module):
             )
 
         return defect_type_loss
+    
+    def _calculate_aux_loss2(
+        self, logits: torch.Tensor, targets: torch.Tensor
+    ):
+        aux_targets = torch.ones(targets.shape[0], 1).to(targets.device)
+        aux_logits = torch.sum((-1)**(1-targets)*logits, 1, keepdim=True)/targets.shape[1]
+        
+        if self.base_loss == "bce":
+            aux_loss = F.binary_cross_entropy_with_logits(
+                aux_logits, aux_targets, reduction="none"
+            )
+        else:
+            aux_loss = sigmoid_focal_loss(
+            # aux_loss = self._calculate_stable_focal_loss(
+                aux_logits,
+                aux_targets,
+                alpha=-1,
+                gamma=self.focal_gamma,
+                reduction="none",
+            )
+        return aux_loss
+    
 
-    def _calculate_meta_loss(
+    def _calculate_aux_loss(
         self, logits: torch.Tensor, targets: torch.Tensor
     ) -> torch.Tensor:
         """
@@ -192,7 +214,8 @@ class HybridLoss(torch.nn.Module):
         defect_type_loss = self._calculate_multi_label_loss(logits, targets)
         defect_type_loss = torch.sum(defect_type_loss, 1, keepdim=True)
 
-        meta_loss = self._calculate_meta_loss(logits, targets)
+        meta_loss = self._calculate_aux_loss(logits, targets)
+        # meta_loss = self._calculate_aux_loss2(logits, targets)
 
         final_loss = defect_type_loss + self.meta_loss_weight * meta_loss
 
