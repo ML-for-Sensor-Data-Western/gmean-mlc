@@ -1,14 +1,14 @@
 import lightning.pytorch as pl
 import torch
-from torchvision import models as torch_models
-
 from torchmetrics.classification import MultilabelF1Score, MultilabelFBetaScore
-from eval_metrics import CustomMultiLabelAveragePrecision
+from torchvision import models as torch_models
 
 import ml_models
 import sewer_models
+from eval_metrics import CustomMultiLabelAveragePrecision
 
-LR_STEPS = [30,60,80]
+LR_STEPS = [30, 60, 80]
+
 
 class MultiLabelModel(pl.LightningModule):
     TORCHVISION_MODEL_NAMES = sorted(
@@ -60,18 +60,22 @@ class MultiLabelModel(pl.LightningModule):
 
         self.num_classes = num_classes
         self.max_epochs = max_epochs
-        
+
         if model in MultiLabelModel.TORCHVISION_MODEL_NAMES:
             self.model = torch_models.__dict__[model](num_classes=self.num_classes)
         elif model in MultiLabelModel.SEWER_MODEL_NAMES:
-            self.model = sewer_models.__dict__[model](num_classes=self.num_classes, mtl_heads=mtl_heads)
+            self.model = sewer_models.__dict__[model](
+                num_classes=self.num_classes, mtl_heads=mtl_heads
+            )
         elif model in MultiLabelModel.MULTILABEL_MODEL_NAMES:
-            self.model = ml_models.__dict__[model](num_classes=self.num_classes, mtl_heads=mtl_heads)
+            self.model = ml_models.__dict__[model](
+                num_classes=self.num_classes, mtl_heads=mtl_heads
+            )
         else:
             raise ValueError(
                 "Got model {}, but no such model is in this codebase".format(model)
-            )    
-        
+            )
+
         self.optimizer_type = optimizer_type.lower()
         self.learning_rate = learning_rate
         self.min_lr = min_lr
@@ -86,12 +90,14 @@ class MultiLabelModel(pl.LightningModule):
         self.warmup_start_factor = warmup_start_factor
         self.adam_beta1 = adam_beta1
         self.adam_beta2 = adam_beta2
-        
+
         self.criterion = criterion
         self.bce = torch.nn.BCEWithLogitsLoss()
         self.ap = CustomMultiLabelAveragePrecision(num_labels=self.num_classes)
         self.f1 = MultilabelF1Score(num_labels=self.num_classes, average="macro")
-        self.f2 = MultilabelFBetaScore(num_labels=self.num_classes, beta=2., average="macro")
+        self.f2 = MultilabelFBetaScore(
+            num_labels=self.num_classes, beta=2.0, average="macro"
+        )
 
         if callable(getattr(self.criterion, "set_device", None)):
             self.criterion.set_device(self.device)
@@ -99,13 +105,13 @@ class MultiLabelModel(pl.LightningModule):
     def forward(self, x):
         logits = self.model(x)
         return logits
-    
+
     def training_step(self, batch, batch_idx):
         x, y, _ = batch
         logits = self(x)
-        
+
         loss = self.criterion(logits, y.float())
-        
+
         self.log(
             "train_loss",
             loss,
@@ -114,20 +120,20 @@ class MultiLabelModel(pl.LightningModule):
             prog_bar=True,
             batch_size=self.batch_size,
         )
-        
+
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y, _ = batch
         logits = self(x)
-        
+
         loss = self.criterion(logits, y.float())
         bce = self.bce(logits, y.float())
-        
+
         self.ap.update(logits, y)
         self.f1.update(logits, y)
         self.f2.update(logits, y)
-        
+
         self.log(
             "val_loss",
             loss,
@@ -144,24 +150,30 @@ class MultiLabelModel(pl.LightningModule):
             prog_bar=True,
             batch_size=self.batch_size,
         )
-        
+
         return loss
-    
+
     def on_validation_epoch_end(self) -> None:
-        self.log("val_ap", self.ap.compute(), on_step=False, on_epoch=True, prog_bar=True)
+        self.log(
+            "val_ap", self.ap.compute(), on_step=False, on_epoch=True, prog_bar=True
+        )
         self.ap.reset()
-        self.log("val_f1", self.f1.compute(), on_step=False, on_epoch=True, prog_bar=True)
+        self.log(
+            "val_f1", self.f1.compute(), on_step=False, on_epoch=True, prog_bar=True
+        )
         self.f1.reset()
-        self.log("val_f2", self.f2.compute(), on_step=False, on_epoch=True, prog_bar=True)
+        self.log(
+            "val_f2", self.f2.compute(), on_step=False, on_epoch=True, prog_bar=True
+        )
         self.f2.reset()
-    
+
     def test_step(self, batch, batch_idx):
         x, y, _ = batch
         logits = self(x)
         loss = self.criterion(logits, y.float())
         self.log("test_loss", loss)
         return loss
-    
+
     def configure_optimizers(self):
         if self.optimizer_type == "sgd":
             optim = torch.optim.SGD(
@@ -185,36 +197,35 @@ class MultiLabelModel(pl.LightningModule):
             )
             # Use cosine decay schedule for AdamW
             base_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                optim,
-                T_max=self.total_epochs,
-                eta_min=self.min_lr
+                optim, T_max=self.total_epochs, eta_min=self.min_lr
             )
         else:
             raise ValueError(f"Unsupported optimizer type: {self.optimizer_type}")
-        
+
         # Add warmup to either scheduler type
         if self.warmup_steps > 0:
-            warmup_schedulaer = torch.optim.lr_scheduler.LinearLR(
-                optim,
-                start_factor=self.warmup_start_factor,
-                end_factor=1.0,
-                total_iters=self.warmup_steps
-            ),
-            chained_scheduler = torch.optim.lr_scheduler.ChainedScheduler([
-                warmup_schedulaer,
-                base_scheduler
-            ])
+            warmup_schedulaer = (
+                torch.optim.lr_scheduler.LinearLR(
+                    optim,
+                    start_factor=self.warmup_start_factor,
+                    end_factor=1.0,
+                    total_iters=self.warmup_steps,
+                ),
+            )
+            chained_scheduler = torch.optim.lr_scheduler.ChainedScheduler(
+                [warmup_schedulaer, base_scheduler]
+            )
             scheduler = {
-                'scheduler': chained_scheduler,
-                'interval': 'step',
-                'frequency': 1
+                "scheduler": chained_scheduler,
+                "interval": "step",
+                "frequency": 1,
             }
         else:
             # No warmup
             scheduler = {
-                'scheduler': base_scheduler,
-                'interval': 'epoch',
-                'frequency': 1
+                "scheduler": base_scheduler,
+                "interval": "epoch",
+                "frequency": 1,
             }
 
         return [optim], [scheduler]
