@@ -31,12 +31,24 @@ def objective(trial: optuna.trial.Trial, args):
         "batch_size": trial.suggest_categorical("batch_size", [256, 512])
         if "batch_size" in args.params
         else args.batch_size,
+        "optimizer_type": trial.suggest_categorical("optimizer_type", ["sgd", "adamW"])
+        if "optimizer_type" in args.params
+        else args.optimizer_type,
         "learning_rate": trial.suggest_categorical("learning_rate", [0.01, 0.05, 0.1])
         if "learning_rate" in args.params
         else args.learning_rate,
+        "min_lr": trial.suggest_float("min_lr", 1e-6, 1e-3)
+        if "min_lr" in args.params
+        else args.min_lr,
         "lr_decay": trial.suggest_categorical("lr_decay", [0.01, 0.05, 0.1])
         if "lr_decay" in args.params
         else args.lr_decay,
+        "warmup_steps": trial.suggest_int("warmup_steps", 500, 20000)
+        if "warmup_steps" in args.params
+        else args.warmup_steps,
+        "warmup_start_factor": trial.suggest_float("warmup_start_factor", 0.01, 0.1)
+        if "warmup_start_factor" in args.params
+        else args.warmup_start_factor,
         "momentum": trial.suggest_categorical("momentum", [0.7, 0.8, 0.9])
         if "momentum" in args.params
         else args.momentum,
@@ -212,10 +224,14 @@ if __name__ == "__main__":
         choices=["medium", "high", "highest"],
     )
     parser.add_argument("--max_epochs", type=int, default=40)
+    parser.add_argument("--optimizer_type", type=str, default="sgd", choices=["sgd", "adamW"])
     parser.add_argument("--learning_rate", type=float, default=0.1)
+    parser.add_argument("--min_lr", type=float, default=1e-5)
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--lr_steps", nargs="+", type=int, default=[20, 30])
     parser.add_argument("--lr_decay", type=float, default=0.01)
+    parser.add_argument("--warmup_steps", type=int, default=2000)
+    parser.add_argument("--warmup_start_factor", type=float, default=0.01)
     parser.add_argument("--weight_decay", type=float, default=0.0001)
     parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument(

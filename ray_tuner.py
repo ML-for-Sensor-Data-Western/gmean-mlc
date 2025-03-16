@@ -37,8 +37,12 @@ from loss import HybridLoss
 
 GLOBAL_CONFIG = {
     "batch_size": tune.choice([64, 128, 256]),
+    "optimizer_type": tune.choice(["sgd", "adamW"]),
     "learning_rate": tune.choice([0.001, 0.01, 0.02, 0.03, 0.05, 0.075, 0.1]),
+    "min_lr": tune.uniform(1e-6, 1e-3), 
     "lr_decay": tune.choice([0.01, 0.05, 0.1]),
+    "warmup_steps": tune.choice([500, 1000, 2000, 5000, 10000, 20000]),
+    "warmup_start_factor": tune.uniform(0.01, 0.1),
     "momentum": tune.choice([0.5, 0.6, 0.7, 0.8, 0.9]),
     "weight_decay": tune.uniform(0.0001, 0.01),
     "class_balancing_beta": tune.choice([0.9, 0.99, 0.999, 0.9999]),
@@ -240,10 +244,14 @@ if __name__ == "__main__":
     parser.add_argument("--precision", type=str, default='16-mixed', choices=['16-mixed', '32'])
     parser.add_argument("--matmul_precision", type=str, default='medium', choices=['medium', 'high', 'highest'])
     parser.add_argument("--max_epochs", type=int, default=40)
+    parser.add_argument("--optimizer_type", type=str, default="sgd", choices=["sgd", "adamW"])
     parser.add_argument("--learning_rate", type=float, default=0.1)
+    parser.add_argument("--min_lr", type=float, default=1e-5)
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--lr_steps", nargs="+", type=int, default=[20, 30])
     parser.add_argument("--lr_decay", type=float, default=0.01)
+    parser.add_argument("--warmup_steps", type=int, default=2000)
+    parser.add_argument("--warmup_start_factor", type=float, default=0.01)
     parser.add_argument("--weight_decay", type=float, default=0.0001)
     parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument(

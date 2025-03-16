@@ -259,10 +259,14 @@ def run_cli():
         choices=["medium", "high", "highest"],
     )
     parser.add_argument("--max_epochs", type=int, default=40)
+    parser.add_argument("--optimizer_type", type=str, default="sgd", choices=["sgd", "adamW"])
     parser.add_argument("--learning_rate", type=float, default=0.1)
+    parser.add_argument("--min_lr", type=float, default=1e-5)
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--lr_steps", nargs="+", type=int, default=[20, 30])
     parser.add_argument("--lr_decay", type=float, default=0.01)
+    parser.add_argument("--warmup_steps", type=int, default=2000)
+    parser.add_argument("--warmup_start_factor", type=float, default=0.01)
     parser.add_argument("--weight_decay", type=float, default=0.0001)
     parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument(
