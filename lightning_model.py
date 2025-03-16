@@ -39,12 +39,19 @@ class MultiLabelModel(pl.LightningModule):
         model="resnet18",
         mtl_heads=False,
         num_classes=2,
-        learning_rate=1e-2,
+        max_epochs: int = 40,
+        optimizer_type="sgd",
+        learning_rate=1e-1,
+        min_lr=1e-5,
         momentum=0.9,
         weight_decay=0.0001,
-        batch_size=64,
+        batch_size=256,
         lr_steps: list | None = None,
         lr_decay: float = 0.1,
+        warmup_steps: int = 2000,
+        warmup_start_factor: float = 0.01,
+        adam_beta1: float = 0.9,
+        adam_beta2: float = 0.999,
         criterion=torch.nn.BCEWithLogitsLoss,
         **kwargs,
     ):
@@ -52,7 +59,8 @@ class MultiLabelModel(pl.LightningModule):
         self.save_hyperparameters(ignore="criterion")
 
         self.num_classes = num_classes
-
+        self.max_epochs = max_epochs
+        
         if model in MultiLabelModel.TORCHVISION_MODEL_NAMES:
             self.model = torch_models.__dict__[model](num_classes=self.num_classes)
         elif model in MultiLabelModel.SEWER_MODEL_NAMES:
@@ -62,8 +70,23 @@ class MultiLabelModel(pl.LightningModule):
         else:
             raise ValueError(
                 "Got model {}, but no such model is in this codebase".format(model)
-            )            
-
+            )    
+        
+        self.optimizer_type = optimizer_type.lower()
+        self.learning_rate = learning_rate
+        self.min_lr = min_lr
+        self.momentum = momentum
+        self.weight_decay = weight_decay
+        self.batch_size = batch_size
+        self.lr_steps = lr_steps
+        if lr_steps is None:
+            self.lr_steps = LR_STEPS
+        self.lr_decay = lr_decay
+        self.warmup_steps = warmup_steps
+        self.warmup_start_factor = warmup_start_factor
+        self.adam_beta1 = adam_beta1
+        self.adam_beta2 = adam_beta2
+        
         self.criterion = criterion
         self.bce = torch.nn.BCEWithLogitsLoss()
         self.ap = CustomMultiLabelAveragePrecision(num_labels=self.num_classes)
@@ -72,15 +95,6 @@ class MultiLabelModel(pl.LightningModule):
 
         if callable(getattr(self.criterion, "set_device", None)):
             self.criterion.set_device(self.device)
-        
-        self.learning_rate = learning_rate
-        self.momentum = momentum
-        self.weight_decay = weight_decay
-        self.lr_steps = lr_steps
-        if lr_steps is None:
-            self.lr_steps = LR_STEPS
-        self.lr_decay = lr_decay
-        self.batch_size = batch_size
 
     def forward(self, x):
         logits = self.model(x)
@@ -147,18 +161,60 @@ class MultiLabelModel(pl.LightningModule):
         loss = self.criterion(logits, y.float())
         self.log("test_loss", loss)
         return loss
-
+    
     def configure_optimizers(self):
-        optim = torch.optim.SGD(
-            self.parameters(),
-            lr=self.learning_rate,
-            momentum=self.momentum,
-            weight_decay=self.weight_decay,
-        )
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(
-            optim,
-            milestones=self.lr_steps,
-            gamma=self.lr_decay,
-        )
+        if self.optimizer_type == "sgd":
+            optim = torch.optim.SGD(
+                self.parameters(),
+                lr=self.learning_rate,
+                momentum=self.momentum,
+                weight_decay=self.weight_decay,
+            )
+            # Use step decay schedule for SGD
+            base_scheduler = torch.optim.lr_scheduler.MultiStepLR(
+                optim,
+                milestones=self.lr_steps,
+                gamma=self.lr_decay,
+            )
+        elif self.optimizer_type == "adamw":
+            optim = torch.optim.AdamW(
+                self.parameters(),
+                lr=self.learning_rate,
+                betas=(self.adam_beta1, self.adam_beta2),
+                weight_decay=self.weight_decay,
+            )
+            # Use cosine decay schedule for AdamW
+            base_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optim,
+                T_max=self.total_epochs,
+                eta_min=self.min_lr
+            )
+        else:
+            raise ValueError(f"Unsupported optimizer type: {self.optimizer_type}")
+        
+        # Add warmup to either scheduler type
+        if self.warmup_steps > 0:
+            warmup_schedulaer = torch.optim.lr_scheduler.LinearLR(
+                optim,
+                start_factor=self.warmup_start_factor,
+                end_factor=1.0,
+                total_iters=self.warmup_steps
+            ),
+            chained_scheduler = torch.optim.lr_scheduler.ChainedScheduler([
+                warmup_schedulaer,
+                base_scheduler
+            ])
+            scheduler = {
+                'scheduler': chained_scheduler,
+                'interval': 'step',
+                'frequency': 1
+            }
+        else:
+            # No warmup
+            scheduler = {
+                'scheduler': base_scheduler,
+                'interval': 'epoch',
+                'frequency': 1
+            }
 
         return [optim], [scheduler]
