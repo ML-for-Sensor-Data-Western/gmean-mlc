@@ -197,7 +197,7 @@ class MultiLabelModel(pl.LightningModule):
             )
             # Use cosine decay schedule for AdamW
             base_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                optim, T_max=self.total_epochs, eta_min=self.min_lr
+                optim, T_max=self.max_epochs, eta_min=self.min_lr
             )
         else:
             raise ValueError(f"Unsupported optimizer type: {self.optimizer_type}")
