@@ -202,6 +202,7 @@ def main(args):
             lr_monitor,
             # early_stopper,
         ],
+        gradient_clip_val=1.0,
     )
 
     try:

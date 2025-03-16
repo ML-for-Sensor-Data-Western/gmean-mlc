@@ -138,6 +138,7 @@ def train(config, args):
         benchmark=True,
         logger=logger,
         callbacks=[tune_callback],
+        gradient_clip_val=1.0,
         enable_progress_bar=False,
     )
 
