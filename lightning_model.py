@@ -204,16 +204,15 @@ class MultiLabelModel(pl.LightningModule):
 
         # Add warmup to either scheduler type
         if self.warmup_steps > 0:
-            warmup_schedulaer = (
-                torch.optim.lr_scheduler.LinearLR(
-                    optim,
-                    start_factor=self.warmup_start_factor,
-                    end_factor=1.0,
-                    total_iters=self.warmup_steps,
-                ),
+            warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
+                optim,
+                start_factor=self.warmup_start_factor,
+                end_factor=1.0,
+                total_iters=self.warmup_steps,
             )
             chained_scheduler = torch.optim.lr_scheduler.ChainedScheduler(
-                [warmup_schedulaer, base_scheduler]
+                schedulers=[warmup_scheduler, base_scheduler],
+                optimizer=optim,
             )
             scheduler = {
                 "scheduler": chained_scheduler,
@@ -228,4 +227,4 @@ class MultiLabelModel(pl.LightningModule):
                 "frequency": 1,
             }
 
-        return [optim], [scheduler]
+        return {"optimizer": optim, "lr_scheduler": scheduler}
