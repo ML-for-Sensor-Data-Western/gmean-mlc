@@ -48,10 +48,12 @@ class MultiLabelModel(pl.LightningModule):
         batch_size=256,
         lr_steps: list | None = None,
         lr_decay: float = 0.1,
-        warmup_steps: int = 2000,
+        warmup_steps: int = 5,
         warmup_start_factor: float = 0.01,
         adam_beta1: float = 0.9,
         adam_beta2: float = 0.999,
+        cosine_t0: int = 10,
+        cosine_tmult: int = 2,
         criterion=torch.nn.BCEWithLogitsLoss,
         **kwargs,
     ):
@@ -90,6 +92,8 @@ class MultiLabelModel(pl.LightningModule):
         self.warmup_start_factor = warmup_start_factor
         self.adam_beta1 = adam_beta1
         self.adam_beta2 = adam_beta2
+        self.cosine_t0 = cosine_t0
+        self.cosine_tmult = cosine_tmult
 
         self.criterion = criterion
         self.bce = torch.nn.BCEWithLogitsLoss()
@@ -196,8 +200,8 @@ class MultiLabelModel(pl.LightningModule):
                 weight_decay=self.weight_decay,
             )
             # Use cosine decay schedule for AdamW
-            base_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                optim, T_max=self.max_epochs, eta_min=self.min_lr
+            base_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+                optim, T_0=self.cosine_t0, T_mult=self.cosine_tmult, eta_min=self.min_lr
             )
         else:
             raise ValueError(f"Unsupported optimizer type: {self.optimizer_type}")
@@ -216,7 +220,7 @@ class MultiLabelModel(pl.LightningModule):
             )
             scheduler = {
                 "scheduler": chained_scheduler,
-                "interval": "step",
+                "interval": "epoch",
                 "frequency": 1,
             }
         else:
