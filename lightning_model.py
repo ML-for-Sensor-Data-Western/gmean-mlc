@@ -214,12 +214,13 @@ class MultiLabelModel(pl.LightningModule):
                 end_factor=1.0,
                 total_iters=self.warmup_steps,
             )
-            chained_scheduler = torch.optim.lr_scheduler.ChainedScheduler(
-                schedulers=[warmup_scheduler, base_scheduler],
+            seq_scheduler = torch.optim.lr_scheduler.SequentialLR(
                 optimizer=optim,
+                schedulers=[warmup_scheduler, base_scheduler],
+                milestones=[self.warmup_steps],
             )
             scheduler = {
-                "scheduler": chained_scheduler,
+                "scheduler": seq_scheduler,
                 "interval": "epoch",
                 "frequency": 1,
             }
