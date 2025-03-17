@@ -7,6 +7,7 @@ import torch
 from torch.utils import data
 from torchvision import datasets, transforms
 from dataset_sewer import MultiLabelDataset
+from dataset_coco import MultiLabelDatasetCoco
 import time
 import datetime
 
@@ -64,7 +65,15 @@ def main(args):
         make_reproducible(args.seed)
 
     transform = transforms.Compose([transforms.Resize((224,224)), transforms.ToTensor()])
-    dataset = MultiLabelDataset(args.annRoot, args.dataRoot, split="Train", transform=transform)
+    
+    if args.dataset == "sewer":
+        dataset_cls = MultiLabelDataset
+    elif args.dataset == "coco":
+        dataset_cls = MultiLabelDatasetCoco
+    else:
+        raise ValueError(f"Invalid dataset '{args.dataset}'")
+    
+    dataset = dataset_cls(args.annRoot, args.dataRoot, split="Train", transform=transform)
 
     num_samples = args.num_samples
     if num_samples is None:
@@ -91,7 +100,7 @@ def main(args):
     start_time = time.time()
 
     with torch.no_grad():
-        for batch, (images, _) in enumerate(loader, 1):
+        for batch, (images, _, _) in enumerate(loader, 1):
             images = images.to(args.device)
             images_flat = torch.flatten(images, 2)
 
@@ -130,6 +139,7 @@ def parse_input():
     parser = argparse.ArgumentParser(
         description="Calculation of Sewer-ML Dataset z-score parameters"
     )
+    parser.add_argument("--dataset", type=str, default="sewer", choices=["sewer", "coco"])
     parser.add_argument("--dataRoot", help="path to dataset root directory")
     parser.add_argument("--annRoot", help="path to annotation root directory")
     parser.add_argument(
@@ -190,7 +200,7 @@ def parse_input():
 
     if args.device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
-    args.device = torch.device(device)
+        args.device = torch.device(device)
 
     print(args)
     return args

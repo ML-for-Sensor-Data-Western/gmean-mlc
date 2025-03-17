@@ -22,6 +22,11 @@ from loss import HybridLoss
 
 WANDB_PROJECT_NAME = "gmean-mlc"
 
+SEWER_MEAN = [0.523, 0.453, 0.345]
+SEWER_STD = [0.210, 0.199, 0.154]
+
+COCO_MEAN = [0.470, 0.447, 0.408]
+COCO_STD = [0.233, 0.228, 0.231]
 
 class CustomLogger(WandbLogger):
     def log_metrics(self, metrics, step=None):
@@ -35,6 +40,15 @@ def main(args):
 
     # Init data with transforms
     img_size = 299 if args.model in ["inception_v3", "chen2018_multilabel"] else 224
+    
+    if args.dataset == "sewer":
+        data_mean = SEWER_MEAN
+        data_std = SEWER_STD
+    elif args.dataset == "coco":
+        data_mean = COCO_MEAN
+        data_std = COCO_STD
+    else:
+        raise Exception("Invalid dataset '{}'".format(args.dataset))
 
     train_transform = transforms.Compose(
         [
@@ -44,7 +58,7 @@ def main(args):
                 brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1
             ),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.523, 0.453, 0.345], std=[0.210, 0.199, 0.154]),
+            transforms.Normalize(mean=data_mean, std=data_std),
         ]
     )
 
@@ -52,7 +66,7 @@ def main(args):
         [
             transforms.Resize((img_size, img_size)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.523, 0.453, 0.345], std=[0.210, 0.199, 0.154]),
+            transforms.Normalize(mean=data_mean, std=data_std),
         ]
     )
 
