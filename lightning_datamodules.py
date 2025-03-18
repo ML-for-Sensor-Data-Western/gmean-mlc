@@ -3,6 +3,7 @@ from torch.utils.data import DataLoader
 
 from dataset_sewer import BinaryDataset, BinaryRelevanceDataset, MultiLabelDataset
 from dataset_coco import MultiLabelDatasetCoco
+from dataset_chest import MultiLabelDatasetChest
 
 
 class MultiLabelDataModule(pl.LightningDataModule):
@@ -39,6 +40,8 @@ class MultiLabelDataModule(pl.LightningDataModule):
             dataset_cls = MultiLabelDataset
         elif self.dataset == "coco":
             dataset_cls = MultiLabelDatasetCoco
+        elif self.dataset == "chest":
+            dataset_cls = MultiLabelDatasetChest
         else:
             raise ValueError(f"Invalid dataset '{self.dataset}'")
         

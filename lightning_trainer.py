@@ -28,6 +28,10 @@ SEWER_STD = [0.210, 0.199, 0.154]
 COCO_MEAN = [0.470, 0.447, 0.408]
 COCO_STD = [0.233, 0.228, 0.231]
 
+# To be checked
+CHEST_MEAN = [0.470, 0.447, 0.408]
+CHEST_STD = [0.233, 0.228, 0.231]
+
 class CustomLogger(WandbLogger):
     def log_metrics(self, metrics, step=None):
         if "epoch" in metrics:
@@ -47,6 +51,9 @@ def main(args):
     elif args.dataset == "coco":
         data_mean = COCO_MEAN
         data_std = COCO_STD
+    elif args.dataset == "chest":
+        data_mean = CHEST_MEAN
+        data_std = CHEST_STD
     else:
         raise Exception("Invalid dataset '{}'".format(args.dataset))
 
@@ -250,7 +257,7 @@ def run_cli():
     # add PROGRAM level args
     parser = ArgumentParser()
     parser.add_argument("--wandb_project", type=str, default=WANDB_PROJECT_NAME)
-    parser.add_argument("--dataset", type=str, default="sewer", choices=["sewer", "coco"])
+    parser.add_argument("--dataset", type=str, default="sewer", choices=["sewer", "coco", "chest"])
     parser.add_argument("--ann_root", type=str, default="./annotations")
     parser.add_argument("--data_root", type=str, default="./Data")
     parser.add_argument("--workers", type=int, default=4)
