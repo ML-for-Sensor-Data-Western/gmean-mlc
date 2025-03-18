@@ -9,6 +9,7 @@ import torch
 
 from dataset_sewer import MultiLabelDatasetInference
 from dataset_coco import MultiLabelDatasetInferenceCoco
+from dataset_chest import MultiLabelDatasetInferenceChest
 from torch.utils.data import DataLoader
 
 import torch.nn as nn
@@ -124,6 +125,8 @@ def run_inference(args):
         dataset_infer_class = MultiLabelDatasetInference
     elif args["dataset"] == "coco":
         dataset_infer_class = MultiLabelDatasetInferenceCoco
+    elif args["dataset"] == "chest":
+        dataset_infer_class = MultiLabelDatasetInferenceChest
     else:
         raise ValueError(f"Invalid dataset '{args['dataset']}'")
     
@@ -152,7 +155,7 @@ def run_inference(args):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--dataset", type=str, default="sewer", choices=["sewer", "coco"])
+    parser.add_argument("--dataset", type=str, default="sewer", choices=["sewer", "coco", "chest"])
     parser.add_argument('--ann_root', type=str, default='./annotations')
     parser.add_argument('--data_root', type=str, default='./Data')
     parser.add_argument('--batch_size', type=int, default=512, help="Size of the batch per GPU")
