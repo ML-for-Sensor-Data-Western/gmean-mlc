@@ -10,7 +10,6 @@ from torch.utils.data import Dataset
 
 # List of labels
 Labels = [
-    "No Finding",
     "Infiltration",
     "Effusion",
     "Atelectasis",
@@ -189,13 +188,35 @@ if __name__ == "__main__":
     # Create a training dataset.
     # annRoot: folder containing CSV and split text files.
     # imgRoot: folder containing the ZIP archives.
-    train_dataset = MultiLabelDatasetChest(
+    dataset_train = MultiLabelDatasetChest(
+        annRoot="/mnt/datassd0/chest-xray/data/",
+        imgRoot="/mnt/datassd0/chest-xray/data/images",
+        split="Train",
+        transform=transform,
+    )
+
+    print("\nTraining Set:")
+    print("Number of samples:", len(dataset_train))
+    print("Per-class counts:", dataset_train.class_counts.numpy())
+    print("Number of samples with any finding:", dataset_train.any_class_count)
+    
+    
+    dataset_test = MultiLabelDatasetChest(
         annRoot="/mnt/datassd0/chest-xray/data/",
         imgRoot="/mnt/datassd0/chest-xray/data/images",
         split="Test",
         transform=transform,
     )
-
-    print("Number of training samples:", len(train_dataset))
-    print("Per-class counts:", train_dataset.class_counts)
-    print("Number of samples with any finding:", train_dataset.any_class_count)
+    
+    print("\nTest Set:")
+    print("Number of samples:", len(dataset_test))
+    print("Per-class counts:", dataset_test.class_counts.numpy())
+    print("Number of samples with any finding:", dataset_test.any_class_count)
+    
+    
+    # add class wise count train and test
+    class_counts = [count_1.numpy() + count_2.numpy() for count_1, count_2 in zip(dataset_train.class_counts, dataset_test.class_counts)]
+    print("\nTotal Set:")
+    print("Number of samples:", len(dataset_train) + len(dataset_test))
+    print("Per-class counts:", class_counts)
+    print("Number of samples with any finding:", dataset_train.any_class_count + dataset_test.any_class_count)
