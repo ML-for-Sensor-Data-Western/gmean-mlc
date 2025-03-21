@@ -8,6 +8,7 @@ from torch.utils import data
 from torchvision import datasets, transforms
 from dataset_sewer import MultiLabelDataset
 from dataset_coco import MultiLabelDatasetCoco
+from dataset_chest import MultiLabelDatasetChest
 import time
 import datetime
 
@@ -70,6 +71,8 @@ def main(args):
         dataset_cls = MultiLabelDataset
     elif args.dataset == "coco":
         dataset_cls = MultiLabelDatasetCoco
+    elif args.dataset == "chest":
+        dataset_cls = MultiLabelDatasetChest
     else:
         raise ValueError(f"Invalid dataset '{args.dataset}'")
     
@@ -139,7 +142,7 @@ def parse_input():
     parser = argparse.ArgumentParser(
         description="Calculation of Sewer-ML Dataset z-score parameters"
     )
-    parser.add_argument("--dataset", type=str, default="sewer", choices=["sewer", "coco"])
+    parser.add_argument("--dataset", type=str, default="sewer", choices=["sewer", "coco", "chest"])
     parser.add_argument("--dataRoot", help="path to dataset root directory")
     parser.add_argument("--annRoot", help="path to annotation root directory")
     parser.add_argument(
