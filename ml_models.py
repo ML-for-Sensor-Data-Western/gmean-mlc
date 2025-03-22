@@ -1,10 +1,4 @@
 from multilabel_models.tresnet_model import TResNet
-from multilabel_models.gcn_models import ResNet_GCNN, ResNet_KSSNET
-from multilabel_models.create_adjacency_matrix import normalize_adjacency_matrix
-import torchvision.models as torch_models
-
-import torch
-import numpy as np
 
 
 def tresnet_m(num_classes, pretrained = False, mtl_heads=False, **kwargs):

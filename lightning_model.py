@@ -4,7 +4,6 @@ from torchmetrics.classification import MultilabelF1Score, MultilabelFBetaScore
 from torchvision import models as torch_models
 
 import ml_models
-import sewer_models
 from eval_metrics import CustomMultiLabelAveragePrecision
 
 LR_STEPS = [30, 60, 80]
@@ -18,13 +17,6 @@ class MultiLabelModel(pl.LightningModule):
         and not name.startswith("__")
         and callable(torch_models.__dict__[name])
     )
-    SEWER_MODEL_NAMES = sorted(
-        name
-        for name in sewer_models.__dict__
-        if name.islower()
-        and not name.startswith("__")
-        and callable(sewer_models.__dict__[name])
-    )
     MULTILABEL_MODEL_NAMES = sorted(
         name
         for name in ml_models.__dict__
@@ -32,7 +24,7 @@ class MultiLabelModel(pl.LightningModule):
         and not name.startswith("__")
         and callable(ml_models.__dict__[name])
     )
-    MODEL_NAMES = TORCHVISION_MODEL_NAMES + SEWER_MODEL_NAMES + MULTILABEL_MODEL_NAMES
+    MODEL_NAMES = TORCHVISION_MODEL_NAMES + MULTILABEL_MODEL_NAMES
 
     def __init__(
         self,
