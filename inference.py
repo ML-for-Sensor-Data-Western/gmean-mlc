@@ -7,9 +7,11 @@ from collections import OrderedDict
 import pandas as pd
 import torch
 
-from dataset_sewer import MultiLabelDatasetInference
-from dataset_coco import MultiLabelDatasetInferenceCoco
-from dataset_chest import MultiLabelDatasetInferenceChest
+from gmean_mlc.datasets import (
+    MultiLabelDatasetInference,
+    MultiLabelDatasetInferenceCoco,
+    MultiLabelDatasetInferenceChest,
+)
 from torch.utils.data import DataLoader
 
 import torch.nn as nn

@@ -6,9 +6,9 @@ from math import ceil
 import torch
 from torch.utils import data
 from torchvision import datasets, transforms
-from dataset_sewer import MultiLabelDataset
-from dataset_coco import MultiLabelDatasetCoco
-from dataset_chest import MultiLabelDatasetChest
+from gmean_mlc.datasets.dataset_sewer import MultiLabelDataset
+from gmean_mlc.datasets.dataset_coco import MultiLabelDatasetCoco
+from gmean_mlc.datasets.dataset_chest import MultiLabelDatasetChest
 import time
 import datetime
 

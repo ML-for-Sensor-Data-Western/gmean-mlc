@@ -6,6 +6,7 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.datasets.folder import default_loader
 
+_all__ = ["MultiLabelDatasetCoco", "MultiLabelDatasetInferenceCoco"]
 
 class MultiLabelDatasetCoco(Dataset):
     def __init__(
