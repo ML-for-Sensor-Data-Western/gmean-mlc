@@ -13,12 +13,9 @@ import wandb
 from lightning.pytorch.loggers import WandbLogger
 from torchvision import transforms
 
-from lightning_datamodules import (
-    BinaryDataModule,
-    MultiLabelDataModule,
-)
-from lightning_model import MultiLabelModel
-from loss import HybridLoss
+from gmean_mlc.lightning_datamodules import MultiLabelDataModule
+from gmean_mlc.lightning_model import MultiLabelModel
+from gmean_mlc.loss import HybridLoss
 
 WANDB_PROJECT_NAME = "gmean-mlc"
 
@@ -77,39 +74,16 @@ def main(args):
         ]
     )
 
-    if args.training_mode == "e2e":
-        dm = MultiLabelDataModule(
-            dataset=args.dataset,
-            batch_size=args.batch_size,
-            workers=args.workers,
-            ann_root=args.ann_root,
-            data_root=args.data_root,
-            train_transform=train_transform,
-            eval_transform=eval_transform,
-            only_defects=False,
-        )
-    elif args.training_mode == "defect":
-        dm = MultiLabelDataModule(
-            dataset=args.dataset,
-            batch_size=args.batch_size,
-            workers=args.workers,
-            ann_root=args.ann_root,
-            data_root=args.data_root,
-            train_transform=train_transform,
-            eval_transform=eval_transform,
-            only_defects=True,
-        )
-    elif args.training_mode == "binary":
-        dm = BinaryDataModule(
-            batch_size=args.batch_size,
-            workers=args.workers,
-            ann_root=args.ann_root,
-            data_root=args.data_root,
-            train_transform=train_transform,
-            eval_transform=eval_transform,
-        )
-    else:
-        raise Exception("Invalid training_mode '{}'".format(args.training_mode))
+    dm = MultiLabelDataModule(
+        dataset=args.dataset,
+        batch_size=args.batch_size,
+        workers=args.workers,
+        ann_root=args.ann_root,
+        data_root=args.data_root,
+        train_transform=train_transform,
+        eval_transform=eval_transform,
+        only_defects=False,
+    )
 
     dm.prepare_data()
     dm.setup("fit")
@@ -265,12 +239,6 @@ def run_cli():
     parser.add_argument("--checkpoint", type=str, default=None, help="If resuming")
     parser.add_argument("--log_save_dir", type=str, default="./logs")
     parser.add_argument("--log_version", type=int, default=1)
-    parser.add_argument(
-        "--training_mode",
-        type=str,
-        default="e2e",
-        choices=["e2e", "binary", "defect"],
-    )
     parser.add_argument(
         "--precision", type=str, default="32", choices=["16-mixed", "32"]
     )

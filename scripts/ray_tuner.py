@@ -31,9 +31,9 @@ from torchvision import transforms
 
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from lightning_datamodules import MultiLabelDataModule
-from lightning_model import MultiLabelModel
-from loss import HybridLoss
+from gmean_mlc.lightning_datamodules import MultiLabelDataModule
+from gmean_mlc.lightning_model import MultiLabelModel
+from gmean_mlc.loss import HybridLoss
 
 GLOBAL_CONFIG = {
     "batch_size": tune.choice([64, 128, 256]),

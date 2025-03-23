@@ -1,7 +1,7 @@
 import lightning.pytorch as pl
 from torch.utils.data import DataLoader
 
-from gmean_mlc.datasets import (
+from .datasets import (
     MultiLabelDataset,
     MultiLabelDatasetCoco,
     MultiLabelDatasetChest,

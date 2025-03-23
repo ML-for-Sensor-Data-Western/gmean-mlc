@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 import torch.nn as nn
 
 from gmean_mlc import models as ml_models
-from lightning_model import MultiLabelModel
+from gmean_mlc.lightning_model import MultiLabelModel
 
 
 TORCHVISION_MODEL_NAMES = sorted(name for name in torch_models.__dict__ if name.islower() and not name.startswith("__") and callable(torch_models.__dict__[name]))

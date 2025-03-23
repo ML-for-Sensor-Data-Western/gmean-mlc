@@ -19,9 +19,9 @@ from lightning.pytorch.loggers import TensorBoardLogger
 from optuna.integration import PyTorchLightningPruningCallback
 from torchvision import transforms
 
-from lightning_datamodules import MultiLabelDataModule
-from lightning_model import MultiLabelModel
-from loss import HybridLoss
+from gmean_mlc.lightning_datamodules import MultiLabelDataModule
+from gmean_mlc.lightning_model import MultiLabelModel
+from gmean_mlc.loss import HybridLoss
 
 
 def objective(trial: optuna.trial.Trial, args):
