@@ -4,7 +4,7 @@ from torchmetrics.classification import MultilabelF1Score, MultilabelFBetaScore
 from torchvision import models as torch_models
 
 from gmean_mlc import models as ml_models
-from eval_metrics import CustomMultiLabelAveragePrecision
+from gmean_mlc.metrics.val_metrics import CustomMultiLabelAveragePrecision
 
 LR_STEPS = [30, 60, 80]
 
