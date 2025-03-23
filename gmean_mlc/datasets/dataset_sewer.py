@@ -6,6 +6,8 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.datasets.folder import default_loader
 
+__all__ = ["MultiLabelDataset", "MultiLabelDatasetInference"]
+
 Labels = [
     "RB",
     "OB",
@@ -153,116 +155,6 @@ class MultiLabelDatasetInference(Dataset):
         return img, path
 
 
-class BinaryRelevanceDataset(Dataset):
-    def __init__(
-        self,
-        annRoot,
-        imgRoot,
-        split="Train",
-        transform=None,
-        loader=default_loader,
-        defect=None,
-    ):
-        super(BinaryRelevanceDataset, self).__init__()
-        self.imgRoot = imgRoot
-        self.annRoot = annRoot
-        self.split = split
-
-        self.transform = transform
-        self.loader = default_loader
-
-        self.LabelNames = Labels.copy()
-        self.LabelNames.remove("VA")
-        self.LabelNames.remove("ND")
-        self.defect = defect
-
-        assert self.defect in self.LabelNames
-
-        self.num_classes = 1
-
-        self.loadAnnotations()
-        self.class_weights = self.getClassWeights()
-
-    def loadAnnotations(self):
-        gtPath = os.path.join(self.annRoot, "SewerML_{}.csv".format(self.split))
-        gt = pd.read_csv(
-            gtPath, sep=",", encoding="utf-8", usecols=["Filename", self.defect]
-        )
-
-        self.img_paths = gt["Filename"].values
-        self.labels = gt[self.defect].values.reshape(self.img_paths.shape[0], 1)
-
-    def __len__(self):
-        return len(self.img_paths)
-
-    def __getitem__(self, index):
-        path = self.img_paths[index]
-
-        img = self.loader(os.path.join(self.imgRoot, path))
-        if self.transform is not None:
-            img = self.transform(img)
-
-        target = self.labels[index]
-
-        return img, target, path
-
-    def getClassWeights(self):
-        pos_count = len(self.labels[self.labels == 1])
-        neg_count = self.labels.shape[0] - pos_count
-        class_weight = np.asarray([neg_count / pos_count])
-
-        return torch.as_tensor(class_weight)
-
-
-class BinaryDataset(Dataset):
-    def __init__(
-        self, annRoot, imgRoot, split="Train", transform=None, loader=default_loader
-    ):
-        super(BinaryDataset, self).__init__()
-        self.imgRoot = imgRoot
-        self.annRoot = annRoot
-        self.split = split
-
-        self.transform = transform
-        self.loader = default_loader
-
-        self.num_classes = 1
-
-        self.loadAnnotations()
-        self.class_weights = self.getClassWeights()
-
-    def loadAnnotations(self):
-        gtPath = os.path.join(self.annRoot, "SewerML_{}.csv".format(self.split))
-        gt = pd.read_csv(
-            gtPath, sep=",", encoding="utf-8", usecols=["Filename", "Defect"]
-        )
-
-        self.img_paths = gt["Filename"].values
-        self.labels = gt["Defect"].values.reshape(self.img_paths.shape[0], 1)
-        print(self.labels.shape)
-
-    def __len__(self):
-        return len(self.img_paths)
-
-    def __getitem__(self, index):
-        path = self.img_paths[index]
-
-        img = self.loader(os.path.join(self.imgRoot, path))
-        if self.transform is not None:
-            img = self.transform(img)
-
-        target = self.labels[index]
-
-        return img, target, path
-
-    def getClassWeights(self):
-        pos_count = len(self.labels[self.labels == 1])
-        neg_count = self.labels.shape[0] - pos_count
-        class_weight = np.asarray([neg_count / pos_count])
-
-        return torch.as_tensor(class_weight)
-
-
 if __name__ == "__main__":
     import torchvision.transforms as transforms
     from torch.utils.data import DataLoader
@@ -281,21 +173,9 @@ if __name__ == "__main__":
         transform=transform,
         onlyDefects=True,
     )
-    binary_train = BinaryDataset(
-        annRoot="./annotations", imgRoot="./Data", split="Train", transform=transform
-    )
-    binary_relevance_train = BinaryRelevanceDataset(
-        annRoot="./annotations",
-        imgRoot="./Data",
-        split="Train",
-        transform=transform,
-        defect="RB",
-    )
 
-    print(len(train), len(train_defect), len(binary_train), len(binary_relevance_train))
+    print(len(train), len(train_defect))
     print(
         train.class_counts,
         train_defect.class_counts,
-        binary_train.class_weights,
-        binary_relevance_train.class_weights,
     )

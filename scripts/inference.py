@@ -7,22 +7,22 @@ from collections import OrderedDict
 import pandas as pd
 import torch
 
-from dataset_sewer import MultiLabelDatasetInference
-from dataset_coco import MultiLabelDatasetInferenceCoco
-from dataset_chest import MultiLabelDatasetInferenceChest
+from gmean_mlc.datasets import (
+    MultiLabelDatasetInference,
+    MultiLabelDatasetInferenceCoco,
+    MultiLabelDatasetInferenceChest,
+)
 from torch.utils.data import DataLoader
 
 import torch.nn as nn
 
-import sewer_models
-import ml_models
-from lightning_model import MultiLabelModel
+from gmean_mlc import models as ml_models
+from gmean_mlc.lightning_model import MultiLabelModel
 
 
 TORCHVISION_MODEL_NAMES = sorted(name for name in torch_models.__dict__ if name.islower() and not name.startswith("__") and callable(torch_models.__dict__[name]))
-SEWER_MODEL_NAMES = sorted(name for name in sewer_models.__dict__ if name.islower() and not name.startswith("__") and callable(sewer_models.__dict__[name]))
 MULTILABEL_MODEL_NAMES = sorted(name for name in ml_models.__dict__ if name.islower() and not name.startswith("__") and callable(ml_models.__dict__[name]))
-MODEL_NAMES =  TORCHVISION_MODEL_NAMES + SEWER_MODEL_NAMES + MULTILABEL_MODEL_NAMES
+MODEL_NAMES =  TORCHVISION_MODEL_NAMES + MULTILABEL_MODEL_NAMES
 
 
 def evaluate(dataloader, model, device):

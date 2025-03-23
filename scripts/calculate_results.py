@@ -6,7 +6,7 @@ import warnings
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from metrics import calculate_all_metrics, maximize_class_wise_f_score
+from gmean_mlc.metrics.test_metrics import calculate_all_metrics, maximize_class_wise_f_score
 
 LABEL_WEIGHT_DICT = {
     "RB": 1.00,
