@@ -1,5 +1,4 @@
 import os
-import zipfile
 from io import BytesIO
 from PIL import Image
 
@@ -7,11 +6,11 @@ import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
-
-__all__ = ["MultiLabelDatasetChest", "MultiLabelDatasetInferenceChest"]
+from torchvision.datasets.folder import default_loader
 
 # List of labels
 Labels = [
+    "No Finding",
     "Infiltration",
     "Effusion",
     "Atelectasis",
@@ -28,34 +27,6 @@ Labels = [
     "Hernia",
 ]
 
-# Global cache for mapping PNG file names to their zip archive and internal path.
-_zip_mapping = None
-
-def build_zip_mapping(zip_folder):
-    mapping = {}
-    for zip_filename in os.listdir(zip_folder):
-        if zip_filename.endswith(".zip"):
-            zip_path = os.path.join(zip_folder, zip_filename)
-            with zipfile.ZipFile(zip_path, 'r') as z:
-                for internal_name in z.namelist():
-                    # Get the base file name; if your ZIP archives have folders inside, this will strip them.
-                    base = os.path.basename(internal_name)
-                    # Avoid overwriting if duplicates occur (or handle as needed)
-                    mapping[base] = (zip_path, internal_name)
-    return mapping
-
-def custom_zip_loader(image_filename, zip_folder):
-    global _zip_mapping
-    if _zip_mapping is None:
-        _zip_mapping = build_zip_mapping(zip_folder)
-    if image_filename not in _zip_mapping:
-        raise FileNotFoundError(f"{image_filename} not found in any zip archive in {zip_folder}")
-    zip_path, internal_name = _zip_mapping[image_filename]
-    with zipfile.ZipFile(zip_path, 'r') as z:
-        with z.open(internal_name) as f:
-            img = Image.open(BytesIO(f.read()))
-            return img.convert('RGB')
-
 class MultiLabelDatasetChest(Dataset):
     def __init__(
         self,
@@ -63,20 +34,15 @@ class MultiLabelDatasetChest(Dataset):
         imgRoot,
         split="Train",
         transform=None,
-        loader=None,
+        loader=default_loader,
         onlyDefects=False,
     ):
         super(MultiLabelDatasetChest, self).__init__()
-        self.imgRoot = imgRoot  # This folder contains the ZIP archives.
+        self.imgRoot = imgRoot 
         self.annRoot = annRoot
         self.split = split
         self.transform = transform
-
-        # Use custom ZIP loader if no loader is provided.
-        if loader is None:
-            self.loader = lambda fname: custom_zip_loader(fname, zip_folder=imgRoot)
-        else:
-            self.loader = loader
+        self.loader = loader
 
         self.LabelNames = Labels.copy()
         self.onlyDefects = onlyDefects
@@ -119,7 +85,6 @@ class MultiLabelDatasetChest(Dataset):
     def __getitem__(self, index):
         img_filename = self.img_paths[index]
         target = self.labels[index, :]
-        # Loader uses the PNG file name from CSV and looks it up in the ZIP mapping.
         img = self.loader(img_filename)
 
         if self.transform is not None:
@@ -150,10 +115,7 @@ class MultiLabelDatasetInferenceChest(Dataset):
         self.imgRoot = imgRoot
         self.split = split
         self.transform = transform
-        if loader is None:
-            self.loader = lambda fname: custom_zip_loader(fname, zip_folder=imgRoot)
-        else:
-            self.loader = loader
+        self.loader = loader
 
         self.loadAnnotations()
 
@@ -189,36 +151,14 @@ if __name__ == "__main__":
 
     # Create a training dataset.
     # annRoot: folder containing CSV and split text files.
-    # imgRoot: folder containing the ZIP archives.
-    dataset_train = MultiLabelDatasetChest(
+    # imgRoot: folder containing the images.
+    train_dataset = MultiLabelDatasetChest(
         annRoot="/mnt/datassd0/chest-xray/data/",
-        imgRoot="/mnt/datassd0/chest-xray/data/images",
-        split="Train",
-        transform=transform,
-    )
-
-    print("\nTraining Set:")
-    print("Number of samples:", len(dataset_train))
-    print("Per-class counts:", dataset_train.class_counts.numpy())
-    print("Number of samples with any finding:", dataset_train.any_class_count)
-    
-    
-    dataset_test = MultiLabelDatasetChest(
-        annRoot="/mnt/datassd0/chest-xray/data/",
-        imgRoot="/mnt/datassd0/chest-xray/data/images",
+        imgRoot="/mnt/datassd0/chest-xray/data/images/all_images",
         split="Test",
         transform=transform,
     )
-    
-    print("\nTest Set:")
-    print("Number of samples:", len(dataset_test))
-    print("Per-class counts:", dataset_test.class_counts.numpy())
-    print("Number of samples with any finding:", dataset_test.any_class_count)
-    
-    
-    # add class wise count train and test
-    class_counts = [count_1.numpy() + count_2.numpy() for count_1, count_2 in zip(dataset_train.class_counts, dataset_test.class_counts)]
-    print("\nTotal Set:")
-    print("Number of samples:", len(dataset_train) + len(dataset_test))
-    print("Per-class counts:", class_counts)
-    print("Number of samples with any finding:", dataset_train.any_class_count + dataset_test.any_class_count)
+
+    print("Number of training samples:", len(train_dataset))
+    print("Per-class counts:", train_dataset.class_counts)
+    print("Number of samples with any finding:", train_dataset.any_class_count)
