@@ -8,7 +8,6 @@ from torchvision.datasets.folder import default_loader
 
 # List of labels
 Labels = [
-    "No Finding",
     "Infiltration",
     "Effusion",
     "Atelectasis",
