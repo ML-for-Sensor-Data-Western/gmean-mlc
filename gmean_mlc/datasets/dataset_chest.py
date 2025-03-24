@@ -1,6 +1,4 @@
 import os
-from io import BytesIO
-from PIL import Image
 
 import numpy as np
 import pandas as pd
@@ -69,6 +67,8 @@ class MultiLabelDatasetChest(Dataset):
         df = df[df["Image Index"].isin(keep_filenames)].reset_index(drop=True)
         # Extract the image file names (should be PNG file names as in the CSV).
         img_paths = df["Image Index"].values
+        # add imgRoot to the img_paths
+        img_paths = [os.path.join(self.imgRoot, img_path) for img_path in img_paths]
 
         # Create a multi-hot label matrix.
         labels = np.zeros((len(df), self.num_classes), dtype=int)
@@ -106,7 +106,7 @@ class MultiLabelDatasetInferenceChest(Dataset):
         self,
         annRoot,
         imgRoot,
-        split="Train",
+        split="Test",
         transform=None,
         loader=None,
     ):
@@ -126,7 +126,8 @@ class MultiLabelDatasetInferenceChest(Dataset):
             list_path = os.path.join(self.annRoot, "test_list.txt")
 
         with open(list_path, "r") as f:
-            self.img_paths = [line.strip() for line in f]
+            img_paths = [line.strip() for line in f]
+            self.img_paths = [os.path.join(self.imgRoot, img_path) for img_path in img_paths]
 
     def __len__(self):
         return len(self.img_paths)
@@ -143,7 +144,6 @@ class MultiLabelDatasetInferenceChest(Dataset):
 
 if __name__ == "__main__":
     import torchvision.transforms as transforms
-    from torch.utils.data import DataLoader
 
     transform = transforms.Compose(
         [transforms.Resize((224, 224)), transforms.ToTensor()]
@@ -155,10 +155,30 @@ if __name__ == "__main__":
     train_dataset = MultiLabelDatasetChest(
         annRoot="/mnt/datassd0/chest-xray/data/",
         imgRoot="/mnt/datassd0/chest-xray/data/images/all_images",
+        split="Train",
+        transform=transform,
+    )
+    
+    test_dataset = MultiLabelDatasetChest(
+        annRoot="/mnt/datassd0/chest-xray/data/",
+        imgRoot="/mnt/datassd0/chest-xray/data/images/all_images",
         split="Test",
         transform=transform,
     )
-
-    print("Number of training samples:", len(train_dataset))
+    
+    print("\nTraining Set:")
+    print("Number of samples:", len(train_dataset))
     print("Per-class counts:", train_dataset.class_counts)
     print("Number of samples with any finding:", train_dataset.any_class_count)
+    
+    print("\nTesting Set:")
+    print("Number of samples:", len(test_dataset))
+    print("Per-class counts:", test_dataset.class_counts)
+    print("Number of samples with any finding:", test_dataset.any_class_count)
+    
+    # add class wise count train and test
+    class_counts = [count_1.numpy() + count_2.numpy() for count_1, count_2 in zip(train_dataset.class_counts, test_dataset.class_counts)]
+    print("\nTotal Set:")
+    print("Number of samples:", len(train_dataset) + len(test_dataset))
+    print("Per-class counts:", class_counts)
+    print("Number of samples with any finding:", train_dataset.any_class_count + test_dataset.any_class_count)
