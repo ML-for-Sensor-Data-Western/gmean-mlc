@@ -57,6 +57,7 @@ def main(args):
     train_transform = transforms.Compose(
         [
             transforms.Resize((img_size, img_size)),
+            transforms.Grayscale(num_output_channels=3), ############
             transforms.RandomHorizontalFlip(),
             transforms.ColorJitter(
                 brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1
@@ -69,6 +70,7 @@ def main(args):
     eval_transform = transforms.Compose(
         [
             transforms.Resize((img_size, img_size)),
+            transforms.Grayscale(num_output_channels=3), ############
             transforms.ToTensor(),
             transforms.Normalize(mean=data_mean, std=data_std),
         ]
@@ -117,6 +119,7 @@ def main(args):
         version=str(args.log_version),
         project=args.wandb_project,
         log_model=True,
+        entity="gmean-mlc", ############
     )
 
     logger.experiment.config.update(vars(args), allow_val_change=True)
@@ -238,7 +241,7 @@ def run_cli():
     parser.add_argument("--gpus", nargs="+", type=int, default=[0])
     parser.add_argument("--checkpoint", type=str, default=None, help="If resuming")
     parser.add_argument("--log_save_dir", type=str, default="./logs")
-    parser.add_argument("--log_version", type=int, default=1)
+    parser.add_argument("--log_version", type=str, default=1) ##########
     parser.add_argument(
         "--precision", type=str, default="32", choices=["16-mixed", "32"]
     )
