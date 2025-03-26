@@ -26,8 +26,8 @@ COCO_MEAN = [0.470, 0.447, 0.408]
 COCO_STD = [0.233, 0.228, 0.231]
 
 # To be checked
-CHEST_MEAN = [0.470, 0.447, 0.408]
-CHEST_STD = [0.233, 0.228, 0.231]
+CHEST_MEAN = [0.506, 0.506, 0.506]
+CHEST_STD = [0.230, 0.230, 0.230]
 
 class CustomLogger(WandbLogger):
     def log_metrics(self, metrics, step=None):
