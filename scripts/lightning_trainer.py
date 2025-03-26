@@ -53,28 +53,37 @@ def main(args):
         data_std = CHEST_STD
     else:
         raise Exception("Invalid dataset '{}'".format(args.dataset))
+    
 
-    train_transform = transforms.Compose(
-        [
-            transforms.Resize((img_size, img_size)),
-            transforms.Grayscale(num_output_channels=3), ############
-            transforms.RandomHorizontalFlip(),
-            transforms.ColorJitter(
-                brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1
-            ),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=data_mean, std=data_std),
-        ]
-    )
+    train_transform_list = [
+        transforms.Resize((img_size, img_size)),
+    ]
 
-    eval_transform = transforms.Compose(
-        [
-            transforms.Resize((img_size, img_size)),
-            transforms.Grayscale(num_output_channels=3), ############
-            transforms.ToTensor(),
-            transforms.Normalize(mean=data_mean, std=data_std),
-        ]
-    )
+    eval_transform_list = [
+        transforms.Resize((img_size, img_size)),
+    ]
+
+    if args.dataset == "chest":
+        train_transform_list.append(transforms.Grayscale(num_output_channels=3))
+        eval_transform_list.append(transforms.Grayscale(num_output_channels=3))
+
+    train_transform_list += [
+        transforms.RandomHorizontalFlip(),
+        transforms.ColorJitter(
+            brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1
+        ),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=data_mean, std=data_std),
+    ]
+
+    eval_transform_list += [
+        transforms.ToTensor(),
+        transforms.Normalize(mean=data_mean, std=data_std),
+    ]
+
+    train_transform = transforms.Compose(train_transform_list)
+    eval_transform = transforms.Compose(eval_transform_list)
+
 
     dm = MultiLabelDataModule(
         dataset=args.dataset,
