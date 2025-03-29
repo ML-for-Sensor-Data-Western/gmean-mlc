@@ -23,6 +23,15 @@ MULTILABEL_MODEL_NAMES = sorted(name for name in ml_models.__dict__ if name.islo
 ) and not name.startswith("__") and callable(ml_models.__dict__[name]))
 MODEL_NAMES = TORCHVISION_MODEL_NAMES + MULTILABEL_MODEL_NAMES
 
+SEWER_MEAN = [0.523, 0.453, 0.345]
+SEWER_STD = [0.210, 0.199, 0.154]
+
+COCO_MEAN = [0.470, 0.447, 0.408]
+COCO_STD = [0.233, 0.228, 0.231]
+
+CHEST_MEAN = [0.506, 0.506, 0.506]
+CHEST_STD = [0.230, 0.230, 0.230]
+
 
 def evaluate(dataloader, model, device):
     model.eval()
@@ -117,16 +126,34 @@ def run_inference(args):
     lt_model = lt_model.to(device)
 
     # initialize dataloaders
-    img_size = 299 if model_name in [
-        "inception_v3", "chen2018_multilabel"] else 224
+    img_size = 224
 
-    eval_transform = transforms.Compose([
+    # normalization parameters
+    if args.dataset == "sewer":
+        data_mean = SEWER_MEAN
+        data_std = SEWER_STD
+    elif args.dataset == "coco":
+        data_mean = COCO_MEAN
+        data_std = COCO_STD
+    elif args.dataset == "chest":
+        data_mean = CHEST_MEAN
+        data_std = CHEST_STD
+    else:
+        raise Exception("Invalid dataset '{}'".format(args.dataset))
+
+    # transformation
+    eval_transform_list = [
         transforms.Resize((img_size, img_size)),
+    ]
+    if args.dataset == "chest":
+        eval_transform_list.append(transforms.Grayscale(num_output_channels=3))
+    eval_transform_list += [
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.523, 0.453, 0.345], std=[
-                             0.210, 0.199, 0.154])
-    ])
+        transforms.Normalize(mean=data_mean, std=data_std),
+    ]
+    eval_transform = transforms.Compose(eval_transform_list)
 
+    # dataset class
     if args["dataset"] == "sewer":
         dataset_infer_class = MultiLabelDatasetInference
     elif args["dataset"] == "coco":
@@ -136,6 +163,7 @@ def run_inference(args):
     else:
         raise ValueError(f"Invalid dataset '{args['dataset']}'")
 
+    # inference
     for split in splits:
         dataset = dataset_infer_class(
             ann_root, data_root, split=split, transform=eval_transform, onlyDefects=False)
