@@ -59,6 +59,7 @@ class MultiLabelDatasetCoco(Dataset):
 
         # Generate labels
         self.labels = self._generate_labels()
+        self.labelNames = [self.category_id_to_name[i+1] for i in range(self.num_classes)]
 
         return
 
@@ -160,6 +161,26 @@ if __name__ == "__main__":
         split="Train",
         transform=transform,
     )
+    
+    val = MultiLabelDatasetCoco(
+        annRoot="/mnt/datassd0/coco-2017/annotations/",
+        imgRoot="/mnt/datassd0/coco-2017/images/all_images",
+        split="Val",
+        transform=transform,
+    )
 
-    print(len(train))
-    print(train.class_counts, train.any_class_count)
+    print("Number of classes: ", train.num_classes)
+    
+    print(
+        f"\nTraining Set:" 
+        f"\nNumber of samples: {len(train)}"
+        f"\nClass counts: {train.class_counts}"
+        f"\nAny class count: {train.any_class_count}"
+    )
+    
+    print(
+        f"\nValidation Set:" 
+        f"\nNumber of samples: {len(val)}"
+        f"\nClass counts: {val.class_counts}"
+        f"\nAny class count: {val.any_class_count}"
+    )
