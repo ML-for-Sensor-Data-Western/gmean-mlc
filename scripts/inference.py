@@ -76,9 +76,6 @@ def load_model(model_path):
 
     model_name = model_ckpt["hyper_parameters"]["model"]
     num_classes = model_ckpt["hyper_parameters"]["num_classes"]
-    mtl_heads = model_ckpt["hyper_parameters"]["mtl_heads"]
-    training_mode = model_ckpt["hyper_parameters"]["training_mode"]
-    br_defect = model_ckpt["hyper_parameters"]["br_defect"]
 
     model_state_dict = model_ckpt["state_dict"]
 
@@ -88,7 +85,7 @@ def load_model(model_path):
         if key in model_state_dict.keys():
             model_state_dict.pop(key)
 
-    return model_state_dict, model_name, num_classes, mtl_heads, training_mode, br_defect
+    return model_state_dict, model_name, num_classes
 
 
 def run_inference(args):
@@ -102,7 +99,7 @@ def run_inference(args):
     if not os.path.isdir(outputPath):
         os.makedirs(outputPath)
 
-    model_state_dict, model_name, num_classes, mtl_heads, training_mode, br_defect = load_model(
+    model_state_dict, model_name, num_classes = load_model(
         model_path)
 
     if model_name not in MODEL_NAMES:
@@ -117,35 +114,40 @@ def run_inference(args):
     lt_model = MultiLabelModel(
         model=model_name,
         num_classes=num_classes,
-        mtl_heads=mtl_heads,
     )
 
     lt_model.load_state_dict(model_state_dict)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        device = torch.device(f"cuda:{args['device_id']}")
+        print(f"Using GPU {args['device_id']}")
+    else:
+        device = torch.device("cpu")
+        print("CUDA not available, using CPU")
+    
     lt_model = lt_model.to(device)
 
     # initialize dataloaders
     img_size = 224
 
     # normalization parameters
-    if args.dataset == "sewer":
+    if args["dataset"] == "sewer":
         data_mean = SEWER_MEAN
         data_std = SEWER_STD
-    elif args.dataset == "coco":
+    elif args["dataset"] == "coco":
         data_mean = COCO_MEAN
         data_std = COCO_STD
-    elif args.dataset == "chest":
+    elif args["dataset"] == "chest":
         data_mean = CHEST_MEAN
         data_std = CHEST_STD
     else:
-        raise Exception("Invalid dataset '{}'".format(args.dataset))
+        raise Exception("Invalid dataset '{}'".format(args["dataset"]))
 
     # transformation
     eval_transform_list = [
         transforms.Resize((img_size, img_size)),
     ]
-    if args.dataset == "chest":
+    if args["dataset"] == "chest":
         eval_transform_list.append(transforms.Grayscale(num_output_channels=3))
     eval_transform_list += [
         transforms.ToTensor(),
@@ -171,10 +173,6 @@ def run_inference(args):
             dataset, batch_size=args["batch_size"], num_workers=args["workers"], pin_memory=True)
 
         labelNames = dataset.LabelNames
-        if training_mode == "binary":
-            labelNames = ["Defect"]
-        elif training_mode == "binaryrelevance":
-            labelNames = [br_defect]
 
         # Validation results
         print("VALIDATION")
@@ -187,11 +185,11 @@ def run_inference(args):
             sigmoid_dict[header] = sigmoid_predictions[:, idx]
 
         sigmoid_df = pd.DataFrame(sigmoid_dict)
-        sigmoid_df.to_csv(os.path.join(outputPath, "{}_{}_{}_sigmoid.csv".format(
-            model_version, training_mode, split.lower())), sep=",", index=False)
+        sigmoid_df.to_csv(os.path.join(outputPath, "{}_{}_sigmoid.csv".format(
+            model_version, split.lower())), sep=",", index=False)
 
 
-if __name__ == "__main__":
+def run_cli():
     parser = ArgumentParser()
     parser.add_argument("--dataset", type=str, default="sewer",
                         choices=["sewer", "coco", "chest"])
@@ -206,7 +204,12 @@ if __name__ == "__main__":
                         choices=["Train", "Val", "Test"])
     parser.add_argument("--do_val_test", action="store_true",
                         help="If true, inference on both val and test sets.")
-
+    parser.add_argument('--device_id', type=int, default=0,
+                       help="GPU device ID to use for inference")
+    
     args = vars(parser.parse_args())
-
     run_inference(args)
+
+
+if __name__ == "__main__":
+    run_cli()
