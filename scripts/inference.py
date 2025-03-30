@@ -80,7 +80,7 @@ def evaluate(dataloader, model, device):
     return sigmoidPredictions, imgPathsList
 
 
-def load_model(model_path):
+def load_model(model_path, device):
     if not os.path.isfile(model_path):
         raise ValueError(
             "The provided path does not lead to a valid file: {}".format(model_path))
@@ -90,6 +90,9 @@ def load_model(model_path):
     print("Model Hyperparams: \n", model_ckpt["hyper_parameters"])
 
     model_name = model_ckpt["hyper_parameters"]["model"]
+    if model_name not in MODEL_NAMES:
+        raise ValueError(
+            "Got model {}, but no such model is in this codebase".format(model_name))
     num_classes = model_ckpt["hyper_parameters"]["num_classes"]
 
     model_state_dict = model_ckpt["state_dict"]
@@ -100,7 +103,16 @@ def load_model(model_path):
         if key in model_state_dict.keys():
             model_state_dict.pop(key)
 
-    return model_state_dict, model_name, num_classes
+    lt_model = MultiLabelModel(
+        model=model_name,
+        num_classes=num_classes,
+    )
+
+    lt_model.load_state_dict(model_state_dict)
+
+    lt_model = lt_model.to(device)
+
+    return lt_model
 
 
 def run_inference(args):
@@ -114,11 +126,58 @@ def run_inference(args):
     if not os.path.isdir(outputPath):
         os.makedirs(outputPath)
 
+    # initialize dataloaders
+    img_size = 224
+
+    # normalization parameters
+    if args["dataset"] == "sewer":
+        data_mean = SEWER_MEAN
+        data_std = SEWER_STD
+    elif args["dataset"] == "coco":
+        data_mean = COCO_MEAN
+        data_std = COCO_STD
+    elif args["dataset"] == "chest":
+        data_mean = CHEST_MEAN
+        data_std = CHEST_STD
+    else:
+        raise Exception("Invalid dataset '{}'".format(args["dataset"]))
+
+    # transformation
+    eval_transform_list = [
+        transforms.Resize((img_size, img_size)),
+    ]
+    if args["dataset"] == "chest":
+        eval_transform_list.append(transforms.Grayscale(num_output_channels=3))
+    eval_transform_list += [
+        transforms.ToTensor(),
+        transforms.Normalize(mean=data_mean, std=data_std),
+    ]
+    eval_transform = transforms.Compose(eval_transform_list)
+
+    # dataset class
+    if args["dataset"] == "sewer":
+        dataset_infer_class = MultiLabelDatasetInference
+    elif args["dataset"] == "coco":
+        dataset_infer_class = MultiLabelDatasetInferenceCoco
+    elif args["dataset"] == "chest":
+        dataset_infer_class = MultiLabelDatasetInferenceChest
+    else:
+        raise ValueError(f"Invalid dataset '{args['dataset']}'")
+
+    # initialize device
+    if torch.cuda.is_available():
+        device = torch.device(f"cuda:{args['device_id']}")
+        print(f"Using GPU {args['device_id']}")
+    else:
+        device = torch.device("cpu")
+        print("CUDA not available, using CPU")
+
     # Process each version
     for version in versions:
         version_dir = os.path.join(log_dir, f"version_{version}")
         if not os.path.exists(version_dir):
-            print(f"Warning: Version directory {version_dir} does not exist, skipping...")
+            print(
+                f"Warning: Version directory {version_dir} does not exist, skipping...")
             continue
 
         # Create version-specific output directory
@@ -126,75 +185,18 @@ def run_inference(args):
         if not os.path.isdir(version_output_dir):
             os.makedirs(version_output_dir)
 
-        # Process each metric
+        # Run inference for each model maximizing the metric
         for metric in ["val_f1", "val_f2", "val_ap"]:
             model_path = find_best_checkpoint(version_dir, metric)
             if not model_path:
-                print(f"Warning: No checkpoint found for metric {metric} in {version_dir}, skipping...")
+                print(
+                    f"Warning: No checkpoint found for metric {metric} in {version_dir}, skipping...")
                 continue
 
             print(f"\nProcessing version {version} with {metric} checkpoint")
-            model_state_dict, model_name, num_classes = load_model(model_path)
+            lt_model = load_model(model_path, device)
 
-            if model_name not in MODEL_NAMES:
-                raise ValueError(
-                    "Got model {}, but no such model is in this codebase".format(model_name))
-
-            lt_model = MultiLabelModel(
-                model=model_name,
-                num_classes=num_classes,
-            )
-
-            lt_model.load_state_dict(model_state_dict)
-
-            if torch.cuda.is_available():
-                device = torch.device(f"cuda:{args['device_id']}")
-                print(f"Using GPU {args['device_id']}")
-            else:
-                device = torch.device("cpu")
-                print("CUDA not available, using CPU")
-            
-            lt_model = lt_model.to(device)
-
-            # initialize dataloaders
-            img_size = 224
-
-            # normalization parameters
-            if args["dataset"] == "sewer":
-                data_mean = SEWER_MEAN
-                data_std = SEWER_STD
-            elif args["dataset"] == "coco":
-                data_mean = COCO_MEAN
-                data_std = COCO_STD
-            elif args["dataset"] == "chest":
-                data_mean = CHEST_MEAN
-                data_std = CHEST_STD
-            else:
-                raise Exception("Invalid dataset '{}'".format(args["dataset"]))
-
-            # transformation
-            eval_transform_list = [
-                transforms.Resize((img_size, img_size)),
-            ]
-            if args["dataset"] == "chest":
-                eval_transform_list.append(transforms.Grayscale(num_output_channels=3))
-            eval_transform_list += [
-                transforms.ToTensor(),
-                transforms.Normalize(mean=data_mean, std=data_std),
-            ]
-            eval_transform = transforms.Compose(eval_transform_list)
-
-            # dataset class
-            if args["dataset"] == "sewer":
-                dataset_infer_class = MultiLabelDatasetInference
-            elif args["dataset"] == "coco":
-                dataset_infer_class = MultiLabelDatasetInferenceCoco
-            elif args["dataset"] == "chest":
-                dataset_infer_class = MultiLabelDatasetInferenceChest
-            else:
-                raise ValueError(f"Invalid dataset '{args['dataset']}'")
-
-            # inference
+            # if multiple splits (Val, Test)
             for split in splits:
                 dataset = dataset_infer_class(
                     ann_root, data_root, split=split, transform=eval_transform, onlyDefects=False)
@@ -216,7 +218,7 @@ def run_inference(args):
                 sigmoid_df = pd.DataFrame(sigmoid_dict)
                 # Include metric in filename
                 metric_name = metric.replace("val_", "")
-                sigmoid_df.to_csv(os.path.join(version_output_dir, f"{model_name}_{metric_name}_{split.lower()}_sigmoid.csv"), sep=",", index=False)
+                sigmoid_df.to_csv(os.path.join(version_output_dir, f"{lt_model.model}_{metric_name}_{split.lower()}_sigmoid.csv"), sep=",", index=False)
 
 def run_cli():
     parser = ArgumentParser()
@@ -229,7 +231,7 @@ def run_cli():
     parser.add_argument('--workers', type=int, default=4)
     parser.add_argument("--log_dir", type=str, required=True,
                        help="Directory containing version folders (e.g., ./logs)")
-    parser.add_argument("--versions", nargs="+", type=str, required=True, # Changed type to str for flexibility
+    parser.add_argument("--versions", nargs="+", type=str, required=True,
                        help="List of version numbers/names to process (e.g., 1 2 10_special)")
     parser.add_argument("--results_output", type=str, default="./results")
     parser.add_argument("--split", type=str, default="Val",
