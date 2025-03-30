@@ -69,9 +69,7 @@ def main(args):
 
     train_transform_list += [
         transforms.RandomHorizontalFlip(),
-        transforms.ColorJitter(
-            brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1
-        ),
+        transforms.RandomRotation(degrees=5),
         transforms.ToTensor(),
         transforms.Normalize(mean=data_mean, std=data_std),
     ]
