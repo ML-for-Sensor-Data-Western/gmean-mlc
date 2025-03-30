@@ -16,6 +16,7 @@ from torchvision import transforms
 from gmean_mlc.lightning_datamodules import MultiLabelDataModule
 from gmean_mlc.lightning_model import MultiLabelModel
 from gmean_mlc.loss import HybridLoss
+from pytorch_lightning.utilities import rank_zero_only
 
 WANDB_PROJECT_NAME = "gmean-mlc"
 
@@ -35,6 +36,9 @@ class CustomLogger(WandbLogger):
             step = metrics["epoch"]
         super().log_metrics(metrics, step)
 
+@rank_zero_only
+def update_config(logger, config_dict):
+    logger.experiment.config.update(config_dict, allow_val_change=True)
 
 def main(args):
     pl.seed_everything(1234567890)
@@ -129,7 +133,8 @@ def main(args):
         entity="gmean-mlc", ############
     )
 
-    logger.experiment.config.update(vars(args), allow_val_change=True)
+    update_config(logger, vars(args))
+    # logger.experiment.config.update(vars(args), allow_val_change=True)
 
     for metric, direction in zip(
         ["val_ap", "val_f1", "val_f2", "val_bce", "val_loss"],

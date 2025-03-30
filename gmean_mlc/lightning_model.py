@@ -58,9 +58,7 @@ class MultiLabelModel(pl.LightningModule):
         if model in MultiLabelModel.TORCHVISION_MODEL_NAMES:
             self.model = torch_models.__dict__[model](num_classes=self.num_classes)
         elif model in MultiLabelModel.MULTILABEL_MODEL_NAMES:
-            self.model = ml_models.__dict__[model](
-                num_classes=self.num_classes, mtl_heads=mtl_heads
-            )
+            self.model = ml_models.__dict__[model](num_classes=self.num_classes)
         else:
             raise ValueError(
                 "Got model {}, but no such model is in this codebase".format(model)
