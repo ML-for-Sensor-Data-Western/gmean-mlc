@@ -19,10 +19,20 @@ from gmean_mlc.datasets import (
 )
 from gmean_mlc.lightning_model import MultiLabelModel
 
-TORCHVISION_MODEL_NAMES = sorted(name for name in torch_models.__dict__ if name.islower(
-) and not name.startswith("__") and callable(torch_models.__dict__[name]))
-MULTILABEL_MODEL_NAMES = sorted(name for name in ml_models.__dict__ if name.islower(
-) and not name.startswith("__") and callable(ml_models.__dict__[name]))
+TORCHVISION_MODEL_NAMES = sorted(
+    name
+    for name in torch_models.__dict__
+    if name.islower()
+    and not name.startswith("__")
+    and callable(torch_models.__dict__[name])
+)
+MULTILABEL_MODEL_NAMES = sorted(
+    name
+    for name in ml_models.__dict__
+    if name.islower()
+    and not name.startswith("__")
+    and callable(ml_models.__dict__[name])
+)
 MODEL_NAMES = TORCHVISION_MODEL_NAMES + MULTILABEL_MODEL_NAMES
 
 SEWER_MEAN = [0.523, 0.453, 0.345]
@@ -34,20 +44,29 @@ COCO_STD = [0.233, 0.228, 0.231]
 CHEST_MEAN = [0.506, 0.506, 0.506]
 CHEST_STD = [0.230, 0.230, 0.230]
 
+
 def find_best_checkpoint(version_dir, metric):
     """Find the best checkpoint for a given metric in a version directory"""
     pattern = os.path.join(version_dir, f"*{metric}=*.ckpt")
     checkpoints = glob.glob(pattern)
     if not checkpoints:
         return None
-    
+
     # Extract metric value from filename and find best
     try:
-        best_ckpt = max(checkpoints, key=lambda x: float(re.search(f"{metric}=([0-9]+(?:\.[0-9]+)?)", x).group(1)))
+        best_ckpt = max(
+            checkpoints,
+            key=lambda x: float(
+                re.search(f"{metric}=([0-9]+(?:\.[0-9]+)?)", x).group(1)
+            ),
+        )
         return best_ckpt
     except (AttributeError, ValueError) as e:
-        print(f"Warning: Could not parse metric value for {metric} in {version_dir}. Error: {e}")
+        print(
+            f"Warning: Could not parse metric value for {metric} in {version_dir}. Error: {e}"
+        )
         return None
+
 
 def evaluate(dataloader, model, device):
     model.eval()
@@ -73,8 +92,7 @@ def evaluate(dataloader, model, device):
             if sigmoidPredictions is None:
                 sigmoidPredictions = sigmoidOutput
             else:
-                sigmoidPredictions = np.vstack(
-                    (sigmoidPredictions, sigmoidOutput))
+                sigmoidPredictions = np.vstack((sigmoidPredictions, sigmoidOutput))
 
             imgPathsList.extend(list(imgPaths))
     return sigmoidPredictions, imgPathsList
@@ -83,7 +101,8 @@ def evaluate(dataloader, model, device):
 def load_model(model_path, device):
     if not os.path.isfile(model_path):
         raise ValueError(
-            "The provided path does not lead to a valid file: {}".format(model_path))
+            "The provided path does not lead to a valid file: {}".format(model_path)
+        )
 
     model_ckpt = torch.load(model_path)
 
@@ -92,13 +111,19 @@ def load_model(model_path, device):
     model_name = model_ckpt["hyper_parameters"]["model"]
     if model_name not in MODEL_NAMES:
         raise ValueError(
-            "Got model {}, but no such model is in this codebase".format(model_name))
+            "Got model {}, but no such model is in this codebase".format(model_name)
+        )
     num_classes = model_ckpt["hyper_parameters"]["num_classes"]
 
     model_state_dict = model_ckpt["state_dict"]
 
-    keys_to_drop = ["biases", "criterion.bce_with_weights.pos_weight",
-                    "criterion.bce_defect_types.pos_weight", "criterion.bce_defect.pos_weight", "criterion.bce.pos_weight"]
+    keys_to_drop = [
+        "biases",
+        "criterion.bce_with_weights.pos_weight",
+        "criterion.bce_defect_types.pos_weight",
+        "criterion.bce_defect.pos_weight",
+        "criterion.bce.pos_weight",
+    ]
     for key in keys_to_drop:
         if key in model_state_dict.keys():
             model_state_dict.pop(key)
@@ -177,7 +202,8 @@ def run_inference(args):
         version_dir = os.path.join(log_dir, f"version_{version}")
         if not os.path.exists(version_dir):
             print(
-                f"Warning: Version directory {version_dir} does not exist, skipping...")
+                f"Warning: Version directory {version_dir} does not exist, skipping..."
+            )
             continue
 
         # Create version-specific output directory
@@ -190,7 +216,8 @@ def run_inference(args):
             model_path = find_best_checkpoint(version_dir, metric)
             if not model_path:
                 print(
-                    f"Warning: No checkpoint found for metric {metric} in {version_dir}, skipping...")
+                    f"Warning: No checkpoint found for metric {metric} in {version_dir}, skipping..."
+                )
                 continue
 
             print(f"\nProcessing version {version} with {metric} checkpoint")
@@ -199,16 +226,26 @@ def run_inference(args):
             # if multiple splits (Val, Test)
             for split in splits:
                 dataset = dataset_infer_class(
-                    ann_root, data_root, split=split, transform=eval_transform, onlyDefects=False)
+                    ann_root,
+                    data_root,
+                    split=split,
+                    transform=eval_transform,
+                    onlyDefects=False,
+                )
                 dataloader = DataLoader(
-                    dataset, batch_size=args["batch_size"], num_workers=args["workers"], pin_memory=True)
+                    dataset,
+                    batch_size=args["batch_size"],
+                    num_workers=args["workers"],
+                    pin_memory=True,
+                )
 
                 labelNames = dataset.LabelNames
 
                 # Validation results
                 print(f"Processing {split} split")
                 sigmoid_predictions, val_imgPaths = evaluate(
-                    dataloader, lt_model, device)
+                    dataloader, lt_model, device
+                )
 
                 sigmoid_dict = {}
                 sigmoid_dict["Filename"] = val_imgPaths
@@ -218,31 +255,56 @@ def run_inference(args):
                 sigmoid_df = pd.DataFrame(sigmoid_dict)
                 # Include metric in filename
                 metric_name = metric.replace("val_", "")
-                sigmoid_df.to_csv(os.path.join(version_output_dir, f"{lt_model.model}_{metric_name}_{split.lower()}_sigmoid.csv"), sep=",", index=False)
+                sigmoid_df.to_csv(
+                    os.path.join(
+                        version_output_dir,
+                        f"{lt_model.model}_{metric_name}_{split.lower()}_sigmoid.csv",
+                    ),
+                    sep=",",
+                    index=False,
+                )
+
 
 def run_cli():
     parser = ArgumentParser()
-    parser.add_argument("--dataset", type=str, default="sewer",
-                        choices=["sewer", "coco", "chest"])
-    parser.add_argument('--ann_root', type=str, default='./annotations')
-    parser.add_argument('--data_root', type=str, default='./Data')
-    parser.add_argument('--batch_size', type=int, default=512,
-                        help="Size of the batch per GPU")
-    parser.add_argument('--workers', type=int, default=4)
-    parser.add_argument("--log_dir", type=str, required=True,
-                       help="Directory containing version folders (e.g., ./logs)")
-    parser.add_argument("--versions", nargs="+", type=str, required=True,
-                       help="List of version numbers/names to process (e.g., 1 2 10_special)")
+    parser.add_argument(
+        "--dataset", type=str, default="sewer", choices=["sewer", "coco", "chest"]
+    )
+    parser.add_argument("--ann_root", type=str, default="./annotations")
+    parser.add_argument("--data_root", type=str, default="./Data")
+    parser.add_argument(
+        "--batch_size", type=int, default=512, help="Size of the batch per GPU"
+    )
+    parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument(
+        "--log_dir",
+        type=str,
+        required=True,
+        help="Directory containing version folders (e.g., ./logs)",
+    )
+    parser.add_argument(
+        "--versions",
+        nargs="+",
+        type=str,
+        required=True,
+        help="List of version numbers/names to process (e.g., 1 2 10_special)",
+    )
     parser.add_argument("--results_output", type=str, default="./results")
-    parser.add_argument("--split", type=str, default="Val",
-                        choices=["Train", "Val", "Test"])
-    parser.add_argument("--do_val_test", action="store_true",
-                        help="If true, inference on both val and test sets.")
-    parser.add_argument('--device_id', type=int, default=0,
-                       help="GPU device ID to use for inference")
-    
+    parser.add_argument(
+        "--split", type=str, default="Val", choices=["Train", "Val", "Test"]
+    )
+    parser.add_argument(
+        "--do_val_test",
+        action="store_true",
+        help="If true, inference on both val and test sets.",
+    )
+    parser.add_argument(
+        "--device_id", type=int, default=0, help="GPU device ID to use for inference"
+    )
+
     args = vars(parser.parse_args())
     run_inference(args)
+
 
 if __name__ == "__main__":
     run_cli()
