@@ -115,6 +115,8 @@ class MultiLabelDatasetInferenceChest(Dataset):
         self.split = split
         self.transform = transform
         self.loader = loader
+        
+        self.LabelNames = Labels.copy()
 
         self.loadAnnotations()
 

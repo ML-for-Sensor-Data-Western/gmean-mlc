@@ -59,7 +59,7 @@ class MultiLabelDatasetCoco(Dataset):
 
         # Generate labels
         self.labels = self._generate_labels()
-        self.labelNames = [self.category_id_to_name[i+1] for i in range(self.num_classes)]
+        self.LabelNames = [self.category_id_to_name[i+1] for i in range(self.num_classes)]
 
         return
 
@@ -132,6 +132,7 @@ class MultiLabelDatasetInferenceCoco(Dataset):
 
         self.img_paths = {img["id"]: img["file_name"] for img in coco_data["images"]}
         self.image_ids = list(self.img_paths.keys())
+        self.LabelNames = [c["name"] for c in coco_data["categories"][:-1]] # ignore normal class
 
     def __len__(self):
         return len(self.img_paths)
