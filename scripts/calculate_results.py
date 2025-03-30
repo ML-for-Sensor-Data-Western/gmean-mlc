@@ -7,29 +7,10 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from gmean_mlc.metrics.test_metrics import calculate_all_metrics, maximize_class_wise_f_score
+from gmean_mlc.utils.constants import SEWER_LABEL_WEIGHT_DICT
 
-LABEL_WEIGHT_DICT = {
-    "RB": 1.00,
-    "OB": 0.5518,
-    "PF": 0.2896,
-    "DE": 0.1622,
-    "FS": 0.6419,
-    "IS": 0.1847,
-    "RO": 0.3559,
-    "IN": 0.3131,
-    "AF": 0.0811,
-    "BE": 0.2275,
-    "FO": 0.2477,
-    "GR": 0.0901,
-    "PH": 0.4167,
-    "PB": 0.4167,
-    "OS": 0.9009,
-    "OP": 0.3829,
-    "OK": 0.4396,
-}
-LABELS = list(LABEL_WEIGHT_DICT.keys())
-LABEL_WEIGHTS = list(LABEL_WEIGHT_DICT.values())
-
+SEWER_LABEL_WEIGHTS = list(SEWER_LABEL_WEIGHT_DICT.values())
+SEWER_LABELS = list(SEWER_LABEL_WEIGHT_DICT.keys())
 
 def calculate_results_thresholds(scores, targets, output_file):
     num_class = scores.shape[1]
@@ -49,7 +30,7 @@ def calculate_results_thresholds(scores, targets, output_file):
 
         # Assuming evaluation function is defined elsewhere
         main_metrics_t, meta_metrics_t, class_metrics_t = calculate_all_metrics(
-            scores, targets, LABEL_WEIGHTS, threshold=threshold
+            scores, targets, SEWER_LABEL_WEIGHTS, threshold=threshold
         )
 
         macro_f1.append(main_metrics_t["MACRO_F1"])
@@ -116,7 +97,7 @@ def find_best_val_thresholds_and_calculate_test_results(
     print("Max F{} Thresholds: {}".format(args.f_beta, max_val_t))
     
     main_metrics, meta_metrics, class_metrics = calculate_all_metrics(
-        test_scores, test_targets, LABEL_WEIGHTS, max_val_t
+        test_scores, test_targets, SEWER_LABEL_WEIGHTS, max_val_t
     )
     
     save_results_to_json(
@@ -126,7 +107,7 @@ def find_best_val_thresholds_and_calculate_test_results(
 
 def calcualte_results(scores, targets, output_file, args):
     main_metrics, meta_metrics, class_metrics = calculate_all_metrics(
-        scores, targets, LABEL_WEIGHTS, threshold=args.threshold
+        scores, targets, SEWER_LABEL_WEIGHTS, threshold=args.threshold
     )
     save_results_to_json(main_metrics, meta_metrics, class_metrics, output_file, args)
 
@@ -160,8 +141,8 @@ def save_results_to_json(
         "Main": main_metrics,
         "Meta": meta_metrics,
         "Class": class_metrics,
-        "Labels": LABELS,
-        "LabelWeights": LABEL_WEIGHTS,
+        "Labels": SEWER_LABELS,
+        "LabelWeights": SEWER_LABEL_WEIGHTS,
     }
     
     if args.max_fbeta:
@@ -199,11 +180,11 @@ if __name__ == "__main__":
             "max_fbeta selected. Ignoring threshold, multi-threshold, and split commands."
         )
 
-        val_targets = load_scores(os.path.join(args.gt_path, "SewerML_Val.csv"), LABELS)
-        test_targets = load_scores(os.path.join(args.gt_path, "SewerML_Test.csv"), LABELS)
+        val_targets = load_scores(os.path.join(args.gt_path, "SewerML_Val.csv"), SEWER_LABELS)
+        test_targets = load_scores(os.path.join(args.gt_path, "SewerML_Test.csv"), SEWER_LABELS)
 
-        val_scores = load_scores(os.path.join(args.score_path, args.val_score_filename), LABELS)
-        test_scores = load_scores(os.path.join(args.score_path, args.test_score_filename), LABELS)
+        val_scores = load_scores(os.path.join(args.score_path, args.val_score_filename), SEWER_LABELS)
+        test_scores = load_scores(os.path.join(args.score_path, args.test_score_filename), SEWER_LABELS)
 
         output_file = os.path.join(
             args.score_path,
@@ -215,7 +196,7 @@ if __name__ == "__main__":
 
     else:
         target_path = os.path.join(args.gt_path, "SewerML_{}.csv".format(args.split))
-        targets = load_scores(target_path, LABELS)
+        targets = load_scores(target_path, SEWER_LABELS)
 
         for subdir, dirs, files in os.walk(args.score_path):
             print("Iterating in dir: ", subdir)
@@ -235,7 +216,7 @@ if __name__ == "__main__":
 
                 print("Calculating results for: ", score_file)
                 score_path = os.path.join(subdir, score_file)
-                scores = load_scores(score_path, LABELS)
+                scores = load_scores(score_path, SEWER_LABELS)
 
                 if args.multi_threshold:
                     output_file = os.path.join(
