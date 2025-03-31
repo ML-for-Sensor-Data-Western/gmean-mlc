@@ -100,49 +100,6 @@ class MultiLabelDatasetChest(Dataset):
         return any_count
 
 
-class MultiLabelDatasetInferenceChest(Dataset):
-    def __init__(
-        self,
-        annRoot,
-        imgRoot,
-        split="Test",
-        transform=None,
-        loader=None,
-    ):
-        super(MultiLabelDatasetInferenceChest, self).__init__()
-        self.annRoot = annRoot
-        self.imgRoot = imgRoot
-        self.split = split
-        self.transform = transform
-        self.loader = loader
-        
-        self.LabelNames = Labels.copy()
-
-        self.loadAnnotations()
-
-    def loadAnnotations(self):
-        if self.split == "Train":
-            list_path = os.path.join(self.annRoot, "train_val_list.txt")
-        else:
-            list_path = os.path.join(self.annRoot, "test_list.txt")
-
-        with open(list_path, "r") as f:
-            img_paths = [line.strip() for line in f]
-            self.img_paths = [os.path.join(self.imgRoot, img_path) for img_path in img_paths]
-
-    def __len__(self):
-        return len(self.img_paths)
-
-    def __getitem__(self, index):
-        img_filename = self.img_paths[index]
-        img = self.loader(img_filename)
-
-        if self.transform is not None:
-            img = self.transform(img)
-
-        return img, img_filename
-
-
 if __name__ == "__main__":
     import torchvision.transforms as transforms
 

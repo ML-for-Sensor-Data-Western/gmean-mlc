@@ -13,9 +13,9 @@ from torchvision import transforms
 
 from gmean_mlc import models as ml_models
 from gmean_mlc.datasets import (
-    MultiLabelDatasetInference,
-    MultiLabelDatasetInferenceChest,
-    MultiLabelDatasetInferenceCoco,
+    MultiLabelDataset,
+    MultiLabelDatasetChest,
+    MultiLabelDatasetCoco,
 )
 from gmean_mlc.lightning_model import MultiLabelModel
 
@@ -181,11 +181,11 @@ def run_inference(args):
 
     # dataset class
     if args["dataset"] == "sewer":
-        dataset_infer_class = MultiLabelDatasetInference
+        dataset_infer_class = MultiLabelDataset
     elif args["dataset"] == "coco":
-        dataset_infer_class = MultiLabelDatasetInferenceCoco
+        dataset_infer_class = MultiLabelDatasetCoco
     elif args["dataset"] == "chest":
-        dataset_infer_class = MultiLabelDatasetInferenceChest
+        dataset_infer_class = MultiLabelDatasetChest
     else:
         raise ValueError(f"Invalid dataset '{args['dataset']}'")
 

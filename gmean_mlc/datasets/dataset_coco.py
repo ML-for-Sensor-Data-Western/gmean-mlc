@@ -6,8 +6,6 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.datasets.folder import default_loader
 
-_all__ = ["MultiLabelDatasetCoco", "MultiLabelDatasetInferenceCoco"]
-
 class MultiLabelDatasetCoco(Dataset):
     def __init__(
         self,
@@ -98,54 +96,6 @@ class MultiLabelDatasetCoco(Dataset):
         """Count the number of samples that have at least one class"""
         any_class_count = len(labels[labels.sum(axis=1) > 0])
         return any_class_count
-
-
-class MultiLabelDatasetInferenceCoco(Dataset):
-    def __init__(
-        self,
-        annRoot,
-        imgRoot,
-        split="Train",
-        transform=None,
-        loader=default_loader,
-        onlyDefects=False,
-    ):
-        super(MultiLabelDatasetInferenceCoco, self).__init__()
-        self.imgRoot = imgRoot
-        self.annRoot = annRoot
-        self.split = split
-
-        self.transform = transform
-        self.loader = default_loader
-
-        self.onlyDefects = onlyDefects
-
-        self._load_annotations()
-        self.num_samples = len(self.img_paths)
-
-    def _load_annotations(self):
-        gtPath = os.path.join(
-            self.annRoot, "instances_{}2017_balanced.json".format(self.split.lower())
-        )
-        with open(gtPath, "r") as f:
-            coco_data = json.load(f)
-
-        self.img_paths = {img["id"]: img["file_name"] for img in coco_data["images"]}
-        self.image_ids = list(self.img_paths.keys())
-        self.LabelNames = [c["name"] for c in coco_data["categories"][:-1]] # ignore normal class
-
-    def __len__(self):
-        return len(self.img_paths)
-
-    def __getitem__(self, index):
-        img_id = self.image_ids[index]
-        path = self.img_paths[img_id]
-
-        img = self.loader(os.path.join(self.imgRoot, path))
-        if self.transform is not None:
-            img = self.transform(img)
-
-        return img, path
 
 
 if __name__ == "__main__":
