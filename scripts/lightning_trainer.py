@@ -69,11 +69,13 @@ def main(args):
 
     if args.dataset == "chest":
         train_transform_list.append(transforms.Grayscale(num_output_channels=3))
+        train_transform_list.append(transforms.RandomRotation(degrees=5))
         eval_transform_list.append(transforms.Grayscale(num_output_channels=3))
+    else:
+        train_transform_list.append(transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1))
 
     train_transform_list += [
         transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(degrees=5),
         transforms.ToTensor(),
         transforms.Normalize(mean=data_mean, std=data_std),
     ]
