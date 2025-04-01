@@ -122,7 +122,7 @@ def find_best_val_thresholds_and_calculate_test_results(
     )
 
 
-def calcualte_results(scores, targets, labels, label_weights, output_file, args):
+def calculate_results(scores, targets, labels, label_weights, output_file, args):
     main_metrics, meta_metrics, class_metrics = calculate_all_metrics(
         scores, targets, label_weights, threshold=args.threshold
     )
@@ -288,7 +288,7 @@ def run_multi_path_result_calculation(args, dataset_class):
                     version_dir,
                     f"{score_file[:-4]}_{args.threshold}.json",
                 )
-                calcualte_results(
+                calculate_results(
                     scores, targets, labels, label_weights, output_file, args
                 )
 
