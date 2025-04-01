@@ -363,7 +363,7 @@ def calculate_ciw_f2_from_class_f2(class_f2: np.ndarray, weights: List[float]) -
 def calculate_all_metrics(
     scores: np.ndarray,
     targets: np.ndarray,
-    class_weights: List[float],
+    class_weights: List[float] = None,
     threshold: Union[float, np.ndarray] = 0.5,
 ) -> Tuple[Dict[str, Any]]:
     """
@@ -372,12 +372,12 @@ def calculate_all_metrics(
     Args:
         scores (np.ndarray): The predicted scores or probabilities for each class.
         targets (np.ndarray): The true labels or targets.
-        class_weights (List[float]): The weights assigned to each class.
+        class_weights (List[float], optional): The weights assigned to each class. If None, CIW F2 is not calculated. Defaults to None.
         threshold (Union[float, np.ndarray], optional): The threshold value(s) for classification. Defaults to 0.5.
 
     Returns:
         Tuple[Dict[str, float], Dict[str, float], Dict[str, List[float]]]: A tuple containing three dictionaries:
-            - main_metrics: such as micro precision, recall, F1, F2, macro precision, recall, F1, F2, CIW F2, and mAP.
+            - main_metrics: such as micro precision, recall, F1, F2, macro precision, recall, F1, F2, (optional) CIW F2, and mAP.
             - meta_metrics: defect/normal evaluation metrics such as defect/normal precision, recall, F, defect/normal counts.
             - class_metrics: class-wise metrics such as precision, recall, F1, F2, and class counts.
     """
@@ -406,8 +406,13 @@ def calculate_all_metrics(
         class_p, class_r, class_f1, class_f2
     )
 
-    # CIW F2
-    ciw_f2 = calculate_ciw_f2_from_class_f2(class_f2, class_weights)
+    # Calculate CIW F2 only if class weights are provided
+    if class_weights is not None:
+        assert len(class_weights) == scores.shape[1], \
+            "Number of class weights must match the number of classes"
+        ciw_f2 = calculate_ciw_f2_from_class_f2(class_f2, class_weights)
+    else:
+        ciw_f2 = None
 
     # Mean Average Precision (mAP)
     mAP = get_mean_average_precision(scores, targets)
@@ -431,7 +436,6 @@ def calculate_all_metrics(
         "MACRO_R": macro_r,
         "MACRO_F1": macro_f1,
         "MACRO_F2": macro_f2,
-        "CIW_F2": ciw_f2,
         "mAP": mAP,
         "FNR": fnr,
         "FPR": fpr,
@@ -442,6 +446,10 @@ def calculate_all_metrics(
         "MICRO_F1": micro_f1,
         "MICRO_F2": micro_f2,
     }
+
+    # Add CIW F2 to main_metrics if it was calculated
+    if ciw_f2 is not None:
+        main_metrics["CIW_F2"] = ciw_f2
 
     # Defect/Normal Metrics
     meta_metrics = {

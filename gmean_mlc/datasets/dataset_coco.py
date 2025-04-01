@@ -6,8 +6,6 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.datasets.folder import default_loader
 
-_all__ = ["MultiLabelDatasetCoco", "MultiLabelDatasetInferenceCoco"]
-
 class MultiLabelDatasetCoco(Dataset):
     def __init__(
         self,
@@ -59,6 +57,7 @@ class MultiLabelDatasetCoco(Dataset):
 
         # Generate labels
         self.labels = self._generate_labels()
+        self.LabelNames = [self.category_id_to_name[i+1] for i in range(self.num_classes)]
 
         return
 
@@ -99,53 +98,6 @@ class MultiLabelDatasetCoco(Dataset):
         return any_class_count
 
 
-class MultiLabelDatasetInferenceCoco(Dataset):
-    def __init__(
-        self,
-        annRoot,
-        imgRoot,
-        split="Train",
-        transform=None,
-        loader=default_loader,
-        onlyDefects=False,
-    ):
-        super(MultiLabelDatasetInferenceCoco, self).__init__()
-        self.imgRoot = imgRoot
-        self.annRoot = annRoot
-        self.split = split
-
-        self.transform = transform
-        self.loader = default_loader
-
-        self.onlyDefects = onlyDefects
-
-        self._load_annotations()
-        self.num_samples = len(self.img_paths)
-
-    def _load_annotations(self):
-        gtPath = os.path.join(
-            self.annRoot, "instances_{}2017_balanced.json".format(self.split.lower())
-        )
-        with open(gtPath, "r") as f:
-            coco_data = json.load(f)
-
-        self.img_paths = {img["id"]: img["file_name"] for img in coco_data["images"]}
-        self.image_ids = list(self.img_paths.keys())
-
-    def __len__(self):
-        return len(self.img_paths)
-
-    def __getitem__(self, index):
-        img_id = self.image_ids[index]
-        path = self.img_paths[img_id]
-
-        img = self.loader(os.path.join(self.imgRoot, path))
-        if self.transform is not None:
-            img = self.transform(img)
-
-        return img, path
-
-
 if __name__ == "__main__":
     import torchvision.transforms as transforms
     from torch.utils.data import DataLoader
@@ -160,6 +112,26 @@ if __name__ == "__main__":
         split="Train",
         transform=transform,
     )
+    
+    val = MultiLabelDatasetCoco(
+        annRoot="/mnt/datassd0/coco-2017/annotations/",
+        imgRoot="/mnt/datassd0/coco-2017/images/all_images",
+        split="Val",
+        transform=transform,
+    )
 
-    print(len(train))
-    print(train.class_counts, train.any_class_count)
+    print("Number of classes: ", train.num_classes)
+    
+    print(
+        f"\nTraining Set:" 
+        f"\nNumber of samples: {len(train)}"
+        f"\nClass counts: {train.class_counts}"
+        f"\nAny class count: {train.any_class_count}"
+    )
+    
+    print(
+        f"\nValidation Set:" 
+        f"\nNumber of samples: {len(val)}"
+        f"\nClass counts: {val.class_counts}"
+        f"\nAny class count: {val.any_class_count}"
+    )
