@@ -114,7 +114,7 @@ class HybridLoss(torch.nn.Module):
         Returns:
             torch.Tensor: (batch_size, 1) balancing weights for each sample in the batch.
         """
-        weights = class_weights.to(targets.device).float()
+        weights = class_weights.type_as(targets).float()
         weights = weights.unsqueeze(0)  # (1, num_classes)
         weights = weights.expand(targets.shape[0], -1)  # (batch_size, num_classes)
         weights = torch.sum(weights * targets, 1, keepdim=True)  # (batch_size, 1)
@@ -148,7 +148,7 @@ class HybridLoss(torch.nn.Module):
     def _calculate_aux_loss2(
         self, logits: torch.Tensor, targets: torch.Tensor
     ):
-        aux_targets = torch.ones(targets.shape[0], 1).to(targets.device)
+        aux_targets = torch.ones(targets.shape[0], 1).type_as(logits)
         aux_logits = torch.sum((-1)**(1-targets)*logits, 1, keepdim=True)/targets.shape[1]
         
         if self.base_loss == "bce":
