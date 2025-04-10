@@ -79,7 +79,7 @@ def evaluate(dataloader, model, device):
     dataLen = len(dataloader)
 
     with torch.no_grad():
-        for i, (images, imgPaths) in enumerate(dataloader):
+        for i, (images, targets, imgPaths) in enumerate(dataloader):
             if i % 100 == 0:
                 print("{} / {}".format(i, dataLen))
 
