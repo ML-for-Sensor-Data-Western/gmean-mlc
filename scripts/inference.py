@@ -54,7 +54,14 @@ def find_best_checkpoint(version_dir, metric):
 
     # Extract metric value from filename and find best
     try:
+        # Determine if we should maximize or minimize based on metric name
+        should_maximize = metric in ["val_f1", "val_f2", "val_ap"]
         best_ckpt = max(
+            checkpoints,
+            key=lambda x: float(
+                re.search(f"{metric}=([0-9]+(?:\.[0-9]+)?)", x).group(1)
+            ),
+        ) if should_maximize else min(
             checkpoints,
             key=lambda x: float(
                 re.search(f"{metric}=([0-9]+(?:\.[0-9]+)?)", x).group(1)
@@ -211,8 +218,8 @@ def run_inference(args):
         if not os.path.isdir(version_output_dir):
             os.makedirs(version_output_dir)
 
-        # Run inference for each model maximizing the metric
-        for metric in ["val_f1", "val_f2", "val_ap"]:
+        # Run inference for each model maximizing/minimizing the metric
+        for metric in ["val_f1", "val_f2", "val_ap", "val_loss", "val_bce"]:
             model_path = find_best_checkpoint(version_dir, metric)
             if not model_path:
                 print(
@@ -255,11 +262,18 @@ def run_inference(args):
                 sigmoid_df = pd.DataFrame(sigmoid_dict)
                 # Include metric in filename
                 metric_name = metric.replace("val_", "")
+                output_file = os.path.join(
+                    version_output_dir,
+                    f"{model_name}_{metric_name}_{split.lower()}_sigmoid.csv",
+                )
+                
+                # Check if file already exists
+                if os.path.exists(output_file):
+                    print(f"Warning: Output file {output_file} already exists, skipping...")
+                    continue
+                    
                 sigmoid_df.to_csv(
-                    os.path.join(
-                        version_output_dir,
-                        f"{model_name}_{metric_name}_{split.lower()}_sigmoid.csv",
-                    ),
+                    output_file,
                     sep=",",
                     index=False,
                 )
