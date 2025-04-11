@@ -137,7 +137,7 @@ def load_model(model_path, device):
 
     lt_model = lt_model.to(device)
 
-    return lt_model
+    return lt_model, model_name
 
 
 def run_inference(args):
@@ -221,7 +221,7 @@ def run_inference(args):
                 continue
 
             print(f"\nProcessing version {version} with {metric} checkpoint")
-            lt_model = load_model(model_path, device)
+            lt_model, model_name = load_model(model_path, device)
 
             # if multiple splits (Val, Test)
             for split in splits:
@@ -258,7 +258,7 @@ def run_inference(args):
                 sigmoid_df.to_csv(
                     os.path.join(
                         version_output_dir,
-                        f"{lt_model.model}_{metric_name}_{split.lower()}_sigmoid.csv",
+                        f"{model_name}_{metric_name}_{split.lower()}_sigmoid.csv",
                     ),
                     sep=",",
                     index=False,
