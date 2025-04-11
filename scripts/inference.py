@@ -232,6 +232,18 @@ def run_inference(args):
 
             # if multiple splits (Val, Test)
             for split in splits:
+                # Include metric in  output filename
+                metric_name = metric.replace("val_", "")
+                output_file = os.path.join(
+                    version_output_dir,
+                    f"{model_name}_{metric_name}_{split.lower()}_sigmoid.csv",
+                )
+                
+                # Check if file already exists
+                if os.path.exists(output_file):
+                    print(f"Warning: Output file {output_file} already exists, skipping...")
+                    continue
+                
                 dataset = dataset_infer_class(
                     ann_root,
                     data_root,
@@ -260,17 +272,6 @@ def run_inference(args):
                     sigmoid_dict[header] = sigmoid_predictions[:, idx]
 
                 sigmoid_df = pd.DataFrame(sigmoid_dict)
-                # Include metric in filename
-                metric_name = metric.replace("val_", "")
-                output_file = os.path.join(
-                    version_output_dir,
-                    f"{model_name}_{metric_name}_{split.lower()}_sigmoid.csv",
-                )
-                
-                # Check if file already exists
-                if os.path.exists(output_file):
-                    print(f"Warning: Output file {output_file} already exists, skipping...")
-                    continue
                     
                 sigmoid_df.to_csv(
                     output_file,
