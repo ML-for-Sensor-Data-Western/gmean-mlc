@@ -52,7 +52,9 @@ Thumbs.db
 *.mov
 *.wmv
 
+# Ignore all text files except requirements.txt
 *.txt
+!requirements.txt
 *.csv
 *.yaml
 *.ckpt
