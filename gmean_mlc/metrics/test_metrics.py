@@ -1,5 +1,6 @@
 import numpy as np
 from typing import Tuple, List, Dict, Union, Any
+from sklearn.metrics import roc_curve, auc
 # False Positives = n_p - n_tp
 # False Negatives = n_g - n_tp
 # True Positives = n_tp
@@ -360,6 +361,37 @@ def calculate_ciw_f2_from_class_f2(class_f2: np.ndarray, weights: List[float]) -
     return ciw_f2
 
 
+def calculate_roc_auc(scores: np.ndarray, targets: np.ndarray) -> Tuple[float, List[float]]:
+    """
+    Calculate the ROC AUC score for each class and their mean.
+    
+    Args:
+        scores (np.ndarray): Array of predicted scores with shape (n_samples, n_classes)
+        targets (np.ndarray): Array of target labels with shape (n_samples, n_classes)
+        
+    Returns:
+        Tuple[float, List[float]]: Mean ROC AUC and list of class-wise ROC AUCs
+    """
+    n_classes = scores.shape[1]
+    class_auc = []
+    
+    for i in range(n_classes):
+        # Necessary if using MultiLabelSoftMarginLoss instead of BCEWithLogitsLoss
+        class_targets = targets[:, i].copy()
+        class_targets[class_targets == -1] = 0
+        
+        try:
+            fpr, tpr, _ = roc_curve(class_targets, scores[:, i])
+            roc_auc = auc(fpr, tpr)
+            class_auc.append(roc_auc)
+        except ValueError:
+            # Handle case where there's only one class in the targets
+            class_auc.append(0.0)
+            
+    mean_auc = np.mean(class_auc)
+    return mean_auc, class_auc
+
+
 def calculate_all_metrics(
     scores: np.ndarray,
     targets: np.ndarray,
@@ -386,6 +418,9 @@ def calculate_all_metrics(
     ), "The input and targets do not have the same size: Input: {} - Targets: {}".format(
         scores.shape, targets.shape
     )
+
+    # Calculate ROC AUC
+    mean_auc, class_auc = calculate_roc_auc(scores, targets)
 
     n_tp, n_p, n_g = calculate_class_wise_counts(scores, targets, threshold)
     
@@ -437,6 +472,7 @@ def calculate_all_metrics(
         "MACRO_F1": macro_f1,
         "MACRO_F2": macro_f2,
         "mAP": mAP,
+        "ROC_AUC": mean_auc,  # Add ROC AUC to main metrics
         "FNR": fnr,
         "FPR": fpr,
         "FPR_IN_DEFECT": fpr_in_defect,
@@ -475,6 +511,7 @@ def calculate_all_metrics(
         "R_CLS": list(class_r),
         "F1_CLS": list(class_f1),
         "F2_CLS": list(class_f2),
+        "ROC_AUC_CLS": list(class_auc),  # Add class-wise ROC AUC
         "NP": [int(p) for p in n_p],
         "NTP": [int(tp) for tp in n_tp],
         "NG": [int(g) for g in n_g],
