@@ -1,21 +1,27 @@
 import json
 import os
+from typing import Literal
 
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 from torchvision.datasets.folder import default_loader
 
+
 class MultiLabelDatasetCoco(Dataset):
     def __init__(
         self,
-        annRoot,
-        imgRoot,
-        split="Train",
+        annRoot: str,
+        imgRoot: str,
+        split: Literal["Train", "Val", "Test"] = "Train",
         transform=None,
         loader=default_loader,
         onlyDefects=False,
     ):
+        if split not in ["Train", "Val", "Test"]:
+            raise ValueError(
+                f"Split must be one of 'Train', 'Val', or 'Test', got {split}"
+            )
         super(MultiLabelDatasetCoco, self).__init__()
         self.imgRoot = imgRoot
         self.annRoot = annRoot
@@ -33,7 +39,7 @@ class MultiLabelDatasetCoco(Dataset):
 
     def _load_annotations(self):
         gtPath = os.path.join(
-            self.annRoot, "instances_{}2017_balanced.json".format(self.split.lower())
+            self.annRoot, "instances_{}.json".format(self.split.lower())
         )
         with open(gtPath, "r") as f:
             coco_data = json.load(f)
@@ -57,7 +63,9 @@ class MultiLabelDatasetCoco(Dataset):
 
         # Generate labels
         self.labels = self._generate_labels()
-        self.LabelNames = [self.category_id_to_name[i+1] for i in range(self.num_classes)]
+        self.LabelNames = [
+            self.category_id_to_name[i + 1] for i in range(self.num_classes)
+        ]
 
         return
 
@@ -69,7 +77,7 @@ class MultiLabelDatasetCoco(Dataset):
                 category_id = ann["category_id"]
                 label_index = self.category_map[category_id] - 1
                 if label_index < self.num_classes:  # ignore normal class
-                    labels[i][label_index] = 1  # Convert to binary
+                    labels[i][label_index] = 1  # Convert zero label to one
         return labels
 
     def __len__(self):
@@ -100,38 +108,112 @@ class MultiLabelDatasetCoco(Dataset):
 
 if __name__ == "__main__":
     import torchvision.transforms as transforms
-    from torch.utils.data import DataLoader
 
     transform = transforms.Compose(
         [transforms.Resize((224, 224)), transforms.ToTensor()]
     )
 
     train = MultiLabelDatasetCoco(
-        annRoot="/mnt/datassd0/coco-2017/annotations/",
+        annRoot="/mnt/datassd0/coco-2017/output_balanced_70_15_15",
         imgRoot="/mnt/datassd0/coco-2017/images/all_images",
         split="Train",
         transform=transform,
     )
-    
+
     val = MultiLabelDatasetCoco(
-        annRoot="/mnt/datassd0/coco-2017/annotations/",
+        annRoot="/mnt/datassd0/coco-2017/output_balanced_70_15_15",
         imgRoot="/mnt/datassd0/coco-2017/images/all_images",
         split="Val",
         transform=transform,
     )
 
+    test = MultiLabelDatasetCoco(
+        annRoot="/mnt/datassd0/coco-2017/output_balanced_70_15_15",
+        imgRoot="/mnt/datassd0/coco-2017/images/all_images",
+        split="Test",
+        transform=transform,
+    )
+
     print("Number of classes: ", train.num_classes)
-    
+
     print(
-        f"\nTraining Set:" 
+        f"\nTraining Set:"
         f"\nNumber of samples: {len(train)}"
         f"\nClass counts: {train.class_counts}"
         f"\nAny class count: {train.any_class_count}"
+        f"\nNegative count: {len(train) - train.any_class_count}"
     )
-    
+
     print(
-        f"\nValidation Set:" 
+        f"\nValidation Set:"
         f"\nNumber of samples: {len(val)}"
         f"\nClass counts: {val.class_counts}"
         f"\nAny class count: {val.any_class_count}"
+        f"\nNegative count: {len(val) - val.any_class_count}"
     )
+
+    print(
+        f"\nTest Set:"
+        f"\nNumber of samples: {len(test)}"
+        f"\nClass counts: {test.class_counts}"
+        f"\nAny class count: {test.any_class_count}"
+        f"\nNegative count: {len(test) - test.any_class_count}"
+    )
+
+    # plot class count percentages in a bar plot, cover each split in different color
+    import matplotlib.pyplot as plt
+
+    # Get class counts for each split
+    train_counts = train.class_counts.numpy()
+    val_counts = val.class_counts.numpy()
+    test_counts = test.class_counts.numpy()
+
+    # add negative count to each split
+    train_counts = np.append(train_counts, len(train) - train.any_class_count)
+    val_counts = np.append(val_counts, len(val) - val.any_class_count)
+    test_counts = np.append(test_counts, len(test) - test.any_class_count)
+
+    # Calculate percentages
+    train_percentages = train_counts / len(train)
+    val_percentages = val_counts / len(val)
+    test_percentages = test_counts / len(test)
+
+    # Plot percentages for each split
+    plt.figure(figsize=(14, 6))
+    bar_width = 0.25
+    class_names = train.LabelNames + ["Negative"]
+    indices = np.arange(len(class_names))
+
+    plt.bar(
+        indices,
+        train_percentages,
+        width=bar_width,
+        label="Training",
+        alpha=0.7,
+        color="blue",
+    )
+    plt.bar(
+        indices + bar_width,
+        val_percentages,
+        width=bar_width,
+        label="Validation",
+        alpha=0.7,
+        color="green",
+    )
+    plt.bar(
+        indices + 2 * bar_width,
+        test_percentages,
+        width=bar_width,
+        label="Testing",
+        alpha=0.7,
+        color="red",
+    )
+
+    # Add labels and title
+    plt.xlabel("Class Index")
+    plt.ylabel("Percentage of Samples")
+    plt.title("Class Count Percentages by Split")
+    plt.xticks(indices + bar_width, class_names, rotation=90)
+    plt.legend()
+
+    plt.savefig("class_count_percentages_coco.png")
