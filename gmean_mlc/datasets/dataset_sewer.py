@@ -1,4 +1,5 @@
 import os
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -32,13 +33,17 @@ Labels = [
 class MultiLabelDataset(Dataset):
     def __init__(
         self,
-        annRoot,
-        imgRoot,
-        split="Train",
+        annRoot: str,
+        imgRoot: str,
+        split: Literal["Train", "Val", "Test"] = "Train",
         transform=None,
         loader=default_loader,
         onlyDefects=False,
     ):
+        if split not in ["Train", "Val", "Test"]:
+            raise ValueError(
+                f"Split must be one of 'Train', 'Val', or 'Test', got {split}"
+            )
         super(MultiLabelDataset, self).__init__()
         self.imgRoot = imgRoot
         self.annRoot = annRoot
@@ -109,25 +114,87 @@ class MultiLabelDataset(Dataset):
 
 if __name__ == "__main__":
     import torchvision.transforms as transforms
-    from torch.utils.data import DataLoader
 
     transform = transforms.Compose(
         [transforms.Resize((224, 224)), transforms.ToTensor()]
     )
 
     train = MultiLabelDataset(
-        annRoot="./annotations", imgRoot="./Data", split="Train", transform=transform
-    )
-    train_defect = MultiLabelDataset(
-        annRoot="./annotations",
-        imgRoot="./Data",
+        annRoot="/mnt/datassd0/sewer-data/annotations",
+        imgRoot="/mnt/datassd0/sewer-data/images",
         split="Train",
         transform=transform,
-        onlyDefects=True,
     )
 
-    print(len(train), len(train_defect))
-    print(
-        train.class_counts,
-        train_defect.class_counts,
+    val = MultiLabelDataset(
+        annRoot="/mnt/datassd0/sewer-data/annotations",
+        imgRoot="/mnt/datassd0/sewer-data/images",
+        split="Val",
+        transform=transform,
     )
+
+    print("Number of classes: ", train.num_classes)
+
+    print(
+        f"\nTraining Set:"
+        f"\nNumber of samples: {len(train)}"
+        f"\nClass counts: {train.class_counts}"
+        f"\nAny class count: {train.any_class_count}"
+        f"\nNegative count: {len(train) - train.any_class_count}"
+    )
+
+    print(
+        f"\nValidation Set:"
+        f"\nNumber of samples: {len(val)}"
+        f"\nClass counts: {val.class_counts}"
+        f"\nAny class count: {val.any_class_count}"
+        f"\nNegative count: {len(val) - val.any_class_count}"
+    )
+
+    # plot class count percentages in a bar plot, cover each split in different color
+    import matplotlib.pyplot as plt
+
+    # Get class counts for each split
+    train_counts = train.class_counts.numpy()
+    val_counts = val.class_counts.numpy()
+
+    # add negative count to each split
+    train_counts = np.append(train_counts, len(train) - train.any_class_count)
+    val_counts = np.append(val_counts, len(val) - val.any_class_count)
+
+    # Calculate percentages
+    train_percentages = train_counts / len(train)
+    val_percentages = val_counts / len(val)
+
+    # Plot percentages for each split
+    plt.figure(figsize=(14, 6))
+    bar_width = 0.25
+    class_names = train.LabelNames + ["Negative"]
+    indices = np.arange(len(class_names))
+
+    plt.bar(
+        indices,
+        train_percentages,
+        width=bar_width,
+        label="Training",
+        alpha=0.7,
+        color="blue",
+    )
+
+    plt.bar(
+        indices + bar_width,
+        val_percentages,
+        width=bar_width,
+        label="Validation",
+        alpha=0.7,
+        color="green",
+    )
+
+    # Add labels and title
+    plt.xlabel("Class Index")
+    plt.ylabel("Percentage of Samples")
+    plt.title("Class Count Percentages for Training and Validation Sets")
+    plt.xticks(indices + bar_width, class_names, rotation=90)
+    plt.legend()
+
+    plt.savefig("class_count_percentages_sewer.png")
