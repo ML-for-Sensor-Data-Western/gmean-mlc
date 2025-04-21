@@ -13,7 +13,7 @@ from torchvision import transforms
 
 from gmean_mlc import models as ml_models
 from gmean_mlc.datasets import (
-    MultiLabelDataset,
+    MultiLabelDatasetInference,
     MultiLabelDatasetChest,
     MultiLabelDatasetCoco,
 )
@@ -188,7 +188,7 @@ def run_inference(args):
 
     # dataset class
     if args["dataset"] == "sewer":
-        dataset_infer_class = MultiLabelDataset
+        dataset_infer_class = MultiLabelDatasetInference
     elif args["dataset"] == "coco":
         dataset_infer_class = MultiLabelDatasetCoco
     elif args["dataset"] == "chest":

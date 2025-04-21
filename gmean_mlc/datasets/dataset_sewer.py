@@ -110,6 +110,52 @@ class MultiLabelDataset(Dataset):
         # new column of 1 if any column has 1, 0 otherwise
         defect_count = gt[gt["Defect"] == 1].shape[0]
         return defect_count
+    
+
+class MultiLabelDatasetInference(Dataset):
+    def __init__(
+        self,
+        annRoot,
+        imgRoot,
+        split="Train",
+        transform=None,
+        loader=default_loader,
+        onlyDefects=False,
+    ):
+        super(MultiLabelDatasetInference, self).__init__()
+        self.imgRoot = imgRoot
+        self.annRoot = annRoot
+        self.split = split
+
+        self.transform = transform
+        self.loader = default_loader
+
+        self.LabelNames = Labels.copy()
+        self.LabelNames.remove("VA")
+        self.LabelNames.remove("ND")
+        self.onlyDefects = onlyDefects
+
+        self.num_classes = len(self.LabelNames)
+
+        self.loadAnnotations()
+
+    def loadAnnotations(self):
+        gtPath = os.path.join(self.annRoot, "SewerML_{}.csv".format(self.split))
+        gt = pd.read_csv(gtPath, sep=",", encoding="utf-8", usecols=["Filename"])
+
+        self.img_paths = gt["Filename"].values
+
+    def __len__(self):
+        return len(self.img_paths)
+
+    def __getitem__(self, index):
+        path = self.img_paths[index]
+
+        img = self.loader(os.path.join(self.imgRoot, path))
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return img, path
 
 
 if __name__ == "__main__":
