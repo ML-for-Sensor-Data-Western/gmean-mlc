@@ -155,7 +155,7 @@ class MultiLabelDatasetInference(Dataset):
         if self.transform is not None:
             img = self.transform(img)
 
-        return img, path
+        return img, None, path # None for targets
 
 
 if __name__ == "__main__":
