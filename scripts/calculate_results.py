@@ -24,8 +24,8 @@ def calculate_results_thresholds(scores, targets, label_weights, output_file):
     thresholds = [i / 100 for i in range(5, 100, 5)]
     macro_f1 = []
     macro_f2 = []
-    normal_f1 = []
-    defect_f1 = []
+    negative_f1 = []
+    positive_f1 = []
 
     class_f1 = [[] for i in range(num_class)]
     class_f2 = [[] for i in range(num_class)]
@@ -39,8 +39,8 @@ def calculate_results_thresholds(scores, targets, label_weights, output_file):
 
         macro_f1.append(main_metrics_t["MACRO_F1"])
         macro_f2.append(main_metrics_t["MACRO_F2"])
-        normal_f1.append(meta_metrics_t["NORMAL_F1"])
-        defect_f1.append(meta_metrics_t["DEFECT_F1"])
+        negative_f1.append(meta_metrics_t["NEGATIVE_F1"])
+        positive_f1.append(meta_metrics_t["POSITIVE_F1"])
 
         for class_i in range(num_class):
             class_f1[class_i].append(class_metrics_t["F1_CLS"][class_i])
@@ -54,8 +54,8 @@ def calculate_results_thresholds(scores, targets, label_weights, output_file):
     # Plot F1, F2, ciw-F2 in one graph
     ax1.plot(thresholds, macro_f1, label="Macro F1")
     ax1.plot(thresholds, macro_f2, label="Macro F2")
-    ax1.plot(thresholds, normal_f1, label="Normal F1")
-    ax1.plot(thresholds, defect_f1, label="Defect F1")
+    ax1.plot(thresholds, negative_f1, label="Negative F1")
+    ax1.plot(thresholds, positive_f1, label="Positive F1")
 
     ax1.set_xlabel("Threshold")
     ax1.set_ylabel("Value")
@@ -161,8 +161,9 @@ def save_results_to_json(
             "MACRO_F1": main_metrics["MACRO_F1"],
             "MACRO_F2": main_metrics["MACRO_F2"],
             "MAP": main_metrics["mAP"],
-            "NORMAL_F1": meta_metrics["NORMAL_F1"],
-            "DEFECT_F1": meta_metrics["DEFECT_F1"],
+            "NEGATIVE_F1": meta_metrics["NEGATIVE_F1"],
+            "POSITIVE_F1": meta_metrics["POSITIVE_F1"],
+            "MACRO_R": main_metrics["MACRO_R"],
         },
         "Main": main_metrics,
         "Meta": meta_metrics,
