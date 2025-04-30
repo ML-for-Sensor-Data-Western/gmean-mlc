@@ -36,7 +36,14 @@ def extract_metrics(file_path):
 
 # Function to process each version directory
 def process_version(version_dir):
-    version_num = os.path.basename(version_dir).split('_')[1]
+    # Fix for handling version formats like "00_V2"
+    base_name = os.path.basename(version_dir)
+    version_parts = base_name.split('_')
+    if len(version_parts) <= 1:
+        version_num = "unknown"
+    else:
+        # Join all parts after "version_" to handle formats like "00_V2"
+        version_num = '_'.join(version_parts[1:])
     
     results = {
         'version': version_num,
@@ -74,8 +81,17 @@ def main(args):
         result = process_version(version_dir)
         all_results.append(result)
     
-    # Sort results by version number
-    all_results.sort(key=lambda x: int(x['version']))
+    # Sort results by version number, trying numeric sort first, falling back to string sort
+    def version_sort_key(x):
+        version = x['version']
+        try:
+            # Try to convert to int for numeric sorting
+            return (0, int(version))
+        except ValueError:
+            # If not a simple integer, sort as string but after numeric values
+            return (1, version)
+    
+    all_results.sort(key=version_sort_key)
     
     # Write results to CSV
     with open(args.output_path, 'w', newline='') as csvfile:
