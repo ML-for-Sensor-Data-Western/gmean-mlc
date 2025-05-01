@@ -131,7 +131,7 @@ def main(args):
         save_dir=logger_path,
         version=str(args.log_version),
         project=args.wandb_project,
-        log_model=True,
+        log_model= False,
         entity="gmean-mlc", ############
     )
 

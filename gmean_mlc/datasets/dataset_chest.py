@@ -63,7 +63,7 @@ class MultiLabelDatasetChest(Dataset):
 
         # Load the filenames for the split
         split_file_list_path = os.path.join(
-            self.annRoot, f"train_val_test/{self.split.lower()}.txt"
+            self.annRoot, f"train_val_test_new/{self.split.lower()}.txt"
         )
         with open(split_file_list_path, "r") as f:
             split_filenames = set(line.strip() for line in f)
