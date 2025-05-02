@@ -134,12 +134,28 @@ if __name__ == "__main__":
         transform=transform,
     )
 
+    # Get class counts for each split
+    train_counts = train.class_counts.numpy()
+    val_counts = val.class_counts.numpy()
+    test_counts = test.class_counts.numpy()
+    
+    total_counts = (
+        train_counts
+        + val_counts
+        + test_counts
+    )
+    
+    total_samples = len(train) + len(val) + len(test)
+    total_any_class_samples = train.any_class_count + val.any_class_count + test.any_class_count
+    total_negative_samples = total_samples - total_any_class_samples
+    
+    
     print("Number of classes: ", train.num_classes)
 
     print(
         f"\nTraining Set:"
         f"\nNumber of samples: {len(train)}"
-        f"\nClass counts: {train.class_counts}"
+        f"\nClass counts: {train_counts}"
         f"\nAny class count: {train.any_class_count}"
         f"\nNegative count: {len(train) - train.any_class_count}"
     )
@@ -147,7 +163,7 @@ if __name__ == "__main__":
     print(
         f"\nValidation Set:"
         f"\nNumber of samples: {len(val)}"
-        f"\nClass counts: {val.class_counts}"
+        f"\nClass counts: {val_counts}"
         f"\nAny class count: {val.any_class_count}"
         f"\nNegative count: {len(val) - val.any_class_count}"
     )
@@ -155,18 +171,21 @@ if __name__ == "__main__":
     print(
         f"\nTest Set:"
         f"\nNumber of samples: {len(test)}"
-        f"\nClass counts: {test.class_counts}"
+        f"\nClass counts: {test_counts}"
         f"\nAny class count: {test.any_class_count}"
         f"\nNegative count: {len(test) - test.any_class_count}"
     )
 
+    print(
+        f"\nTotal Set:"
+        f"\nNumber of samples: {total_samples}"
+        f"\nClass counts: {total_counts}"
+        f"\nAny class count: {total_any_class_samples}"
+        f"\nNegative count: {total_negative_samples}"
+    )
+
     # plot class count percentages in a bar plot, cover each split in different color
     import matplotlib.pyplot as plt
-
-    # Get class counts for each split
-    train_counts = train.class_counts.numpy()
-    val_counts = val.class_counts.numpy()
-    test_counts = test.class_counts.numpy()
 
     # add negative count to each split
     train_counts = np.append(train_counts, len(train) - train.any_class_count)

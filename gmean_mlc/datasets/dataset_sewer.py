@@ -178,6 +178,10 @@ if __name__ == "__main__":
         split="Val",
         transform=transform,
     )
+    
+    # Get class counts for each split
+    train_counts = train.class_counts.numpy()
+    val_counts = val.class_counts.numpy()
 
     print("Number of classes: ", train.num_classes)
 
@@ -199,10 +203,6 @@ if __name__ == "__main__":
 
     # plot class count percentages in a bar plot, cover each split in different color
     import matplotlib.pyplot as plt
-
-    # Get class counts for each split
-    train_counts = train.class_counts.numpy()
-    val_counts = val.class_counts.numpy()
 
     # add negative count to each split
     train_counts = np.append(train_counts, len(train) - train.any_class_count)

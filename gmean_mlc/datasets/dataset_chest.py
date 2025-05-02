@@ -135,13 +135,31 @@ if __name__ == "__main__":
         split="Test",
         transform=transform,
     )
+    
+    # Get class counts for each split
+    train_counts = train_dataset.class_counts.numpy()
+    val_counts = val_dataset.class_counts.numpy()
+    test_counts = test_dataset.class_counts.numpy()
+    
+    total_counts = (
+        train_counts
+        + val_counts
+        + test_counts
+    )
+
+    total_samples = len(train_dataset) + len(val_dataset) + len(test_dataset)
+    total_any_class_samples = (
+        train_dataset.any_class_count
+        + val_dataset.any_class_count
+        + test_dataset.any_class_count
+    )
 
     print("Number of classes: ", train_dataset.num_classes)
 
     print(
         f"\nTraining Set:"
         f"\nNumber of samples: {len(train_dataset)}"
-        f"\nClass counts: {train_dataset.class_counts}"
+        f"\nClass counts: {train_counts}"
         f"\nAny class count: {train_dataset.any_class_count}"
         f"\nNegative count: {len(train_dataset) - train_dataset.any_class_count}"
     )
@@ -149,7 +167,7 @@ if __name__ == "__main__":
     print(
         f"\nValidation Set:"
         f"\nNumber of samples: {len(val_dataset)}"
-        f"\nClass counts: {val_dataset.class_counts}"
+        f"\nClass counts: {val_counts}"
         f"\nAny class count: {val_dataset.any_class_count}"
         f"\nNegative count: {len(val_dataset) - val_dataset.any_class_count}"
     )
@@ -157,32 +175,21 @@ if __name__ == "__main__":
     print(
         f"\nTesting Set:"
         f"\nNumber of samples: {len(test_dataset)}"
-        f"\nClass counts: {test_dataset.class_counts}"
+        f"\nClass counts: {test_counts}"
         f"\nAny class count: {test_dataset.any_class_count}"
         f"\nNegative count: {len(test_dataset) - test_dataset.any_class_count}"
     )
 
-    class_counts = (
-        train_dataset.class_counts
-        + val_dataset.class_counts
-        + test_dataset.class_counts
-    )
-    class_counts = class_counts.numpy()
-
     print(
         f"\nTotal Set:"
-        f"\nNumber of samples: {len(train_dataset) + len(val_dataset) + len(test_dataset)}"
-        f"\nClass counts: {class_counts}"
-        f"\nAny class count: {train_dataset.any_class_count + val_dataset.any_class_count + test_dataset.any_class_count}"
+        f"\nNumber of samples: {total_samples}"
+        f"\nClass counts: {total_counts}"
+        f"\nAny class count: {total_any_class_samples}"
+        f"\nNegative count: {total_samples - total_any_class_samples}"
     )
 
     # plot class count percentages in a bar plot, cover each split in different color
     import matplotlib.pyplot as plt
-
-    # Get class counts for each split
-    train_counts = train_dataset.class_counts.numpy()
-    val_counts = val_dataset.class_counts.numpy()
-    test_counts = test_dataset.class_counts.numpy()
 
     # add negative count to each split
     train_counts = np.append(
