@@ -55,17 +55,17 @@ def plot_contour(x, y, z):
         ncontours=40,  # Increased from 25 to 40 for more detailed visualization
         contours=dict(
             showlabels=True,
-            labelfont=dict(size=12, color='black', family="Times New Roman")
+            labelfont=dict(size=16, color='black', family="Times New Roman")
         )
     )])
     fig.update_layout(
         xaxis_title=dict(
-            text='p₁',
-            font=dict(family="Times New Roman", size=12, color="black")
+            text='P₁',
+            font=dict(family="Times New Roman", size=20, color="black")
         ),
         yaxis_title=dict(
-            text='p₂',
-            font=dict(family="Times New Roman", size=12, color="black")
+            text='P₂',
+            font=dict(family="Times New Roman", size=20, color="black")
         ),
         margin=dict(l=0, r=0, b=0, t=20),
         height=800,  # Updated to exactly 800
@@ -74,7 +74,7 @@ def plot_contour(x, y, z):
         plot_bgcolor='white',
         font=dict(
             family="Times New Roman",
-            size=12,
+            size=16,
             color="black"
         )
     )
@@ -87,10 +87,10 @@ def plot_contour(x, y, z):
         ticks="outside", 
         tickwidth=1,
         tickcolor='black',
-        tickfont=dict(family="Times New Roman", color='black'),
+        tickfont=dict(family="Times New Roman", color='black', size=16),
         mirror=True,
         title=dict(
-            font=dict(family="Times New Roman", color="black", size=12)
+            font=dict(family="Times New Roman", color="black", size=20)
         )
     )
     
@@ -101,10 +101,10 @@ def plot_contour(x, y, z):
         ticks="outside", 
         tickwidth=1,
         tickcolor='black',
-        tickfont=dict(family="Times New Roman", color='black'),
+        tickfont=dict(family="Times New Roman", color='black', size=16),
         mirror=True,
         title=dict(
-            font=dict(family="Times New Roman", color="black", size=12)
+            font=dict(family="Times New Roman", color="black", size=20)
         )
     )
     
