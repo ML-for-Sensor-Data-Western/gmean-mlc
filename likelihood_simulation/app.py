@@ -55,26 +55,26 @@ def plot_contour(x, y, z):
         ncontours=40,  # Increased from 25 to 40 for more detailed visualization
         contours=dict(
             showlabels=True,
-            labelfont=dict(size=16, color='black', family="Times New Roman")
+            labelfont=dict(size=22, color='black', family="Times New Roman")
         )
     )])
     fig.update_layout(
         xaxis_title=dict(
             text='P₁',
-            font=dict(family="Times New Roman", size=20, color="black")
+            font=dict(family="Times New Roman", size=34, color="black")
         ),
         yaxis_title=dict(
             text='P₂',
-            font=dict(family="Times New Roman", size=20, color="black")
+            font=dict(family="Times New Roman", size=34, color="black")
         ),
         margin=dict(l=0, r=0, b=0, t=20),
-        height=800,  # Updated to exactly 800
-        width=1046,  # Updated to exactly 1046
+        height=600,  # Updated to exactly 800
+        width=800,  # Updated to exactly 1046
         paper_bgcolor='white',
         plot_bgcolor='white',
         font=dict(
             family="Times New Roman",
-            size=16,
+            size=24,
             color="black"
         )
     )
@@ -84,28 +84,22 @@ def plot_contour(x, y, z):
         showline=False, 
         linewidth=1, 
         linecolor='black',
-        ticks="outside", 
-        tickwidth=1,
+        ticks="inside", 
+        ticklen=8,
         tickcolor='black',
-        tickfont=dict(family="Times New Roman", color='black', size=16),
+        tickfont=dict(family="Times New Roman", color='black', size=24),
         mirror=True,
-        title=dict(
-            font=dict(family="Times New Roman", color="black", size=20)
-        )
     )
     
     fig.update_yaxes(
         showline=False, 
         linewidth=1, 
         linecolor='black',
-        ticks="outside", 
-        tickwidth=1,
+        ticks="inside", 
+        ticklen=8,
         tickcolor='black',
-        tickfont=dict(family="Times New Roman", color='black', size=16),
+        tickfont=dict(family="Times New Roman", color='black', size=24),
         mirror=True,
-        title=dict(
-            font=dict(family="Times New Roman", color="black", size=20)
-        )
     )
     
     return fig
@@ -117,12 +111,12 @@ col_prod, col_geo = st.columns(2)
 with col_prod:
     st.markdown("**Product of Probabilities**")
     fig_prod = plot_contour(P1, P2, PRODUCT_PROBS)
-    st.plotly_chart(fig_prod, use_container_width=True, config={'toImageButtonOptions': {'width': 1046, 'height': 800, 'scale': 4}})
+    st.plotly_chart(fig_prod, use_container_width=True)
 
 with col_geo:
     st.markdown("**Geometric Mean of Probabilities**")
     fig_geo = plot_contour(P1, P2, GEO_MEAN_PROBS)
-    st.plotly_chart(fig_geo, use_container_width=True, config={'toImageButtonOptions': {'width': 1046, 'height': 800, 'scale': 4}})
+    st.plotly_chart(fig_geo, use_container_width=True)
 
 # BCE Likelihood
 st.subheader("BCE Likelihood")
@@ -130,7 +124,7 @@ col_bce_likelihood, col_empty1 = st.columns(2)
 with col_bce_likelihood:
     st.markdown("**BCE Likelihood**")
     fig_bce_likelihood = plot_contour(P1, P2, BCE_LIKELIHOOD)
-    st.plotly_chart(fig_bce_likelihood, use_container_width=True, config={'toImageButtonOptions': {'width': 1046, 'height': 800, 'scale': 4}})
+    st.plotly_chart(fig_bce_likelihood, use_container_width=True)
 
 # Any Class Likelihood - Power Mean vs Product
 st.subheader("Any Class Likelihood - Power Mean vs Product")
@@ -140,13 +134,13 @@ with col1:
     # Power Mean version
     st.markdown("**Any Class Likelihood (Power Mean)**")
     fig_any_likelihood = plot_contour(P1, P2, ANY_CLASS_LIKELIHOOD)
-    st.plotly_chart(fig_any_likelihood, use_container_width=True, config={'toImageButtonOptions': {'width': 1046, 'height': 800, 'scale': 4}})
+    st.plotly_chart(fig_any_likelihood, use_container_width=True)
 
 with col2:
     # Product version
     st.markdown("**Any Class Likelihood (Product)**")
     fig_prod_likelihood = plot_contour(P1, P2, PROD_LIKELIHOOD)
-    st.plotly_chart(fig_prod_likelihood, use_container_width=True, config={'toImageButtonOptions': {'width': 1046, 'height': 800, 'scale': 4}})
+    st.plotly_chart(fig_prod_likelihood, use_container_width=True)
 
 # Modified Likelihood - Power Mean vs Product
 st.subheader("Modified Likelihood - Power Mean vs Product")
@@ -156,13 +150,13 @@ with col3:
     # Power Mean version
     st.markdown("**Modified Likelihood (Power Mean)**")
     fig_modified_likelihood = plot_contour(P1, P2, MODIFIED_LIKELIHOOD)
-    st.plotly_chart(fig_modified_likelihood, use_container_width=True, config={'toImageButtonOptions': {'width': 1046, 'height': 800, 'scale': 4}})
+    st.plotly_chart(fig_modified_likelihood, use_container_width=True)
 
 with col4:
     # Product version
     st.markdown("**Modified Likelihood (Product)**")
     fig_modified_prod_likelihood = plot_contour(P1, P2, MODIFIED_PROD_LIKELIHOOD)
-    st.plotly_chart(fig_modified_prod_likelihood, use_container_width=True, config={'toImageButtonOptions': {'width': 1046, 'height': 800, 'scale': 4}})
+    st.plotly_chart(fig_modified_prod_likelihood, use_container_width=True)
 
 # Loss Functions
 st.subheader("Loss Functions")
@@ -173,7 +167,7 @@ col_bce_loss, col_empty2 = st.columns(2)
 with col_bce_loss:
     st.markdown("**BCE Loss**")
     fig_bce_loss = plot_contour(P1, P2, BCE_LOSS)
-    st.plotly_chart(fig_bce_loss, use_container_width=True, config={'toImageButtonOptions': {'width': 1046, 'height': 800, 'scale': 4}})
+    st.plotly_chart(fig_bce_loss, use_container_width=True)
 
 # Any Class Loss - Power Mean vs Product
 st.subheader("Any Class Loss - Power Mean vs Product")
@@ -183,13 +177,13 @@ with col5:
     # Power Mean version
     st.markdown("**Any Class Loss (Power Mean)**")
     fig_any_loss = plot_contour(P1, P2, ANY_CLASS_LOSS)
-    st.plotly_chart(fig_any_loss, use_container_width=True, config={'toImageButtonOptions': {'width': 1046, 'height': 800, 'scale': 4}})
+    st.plotly_chart(fig_any_loss, use_container_width=True)
 
 with col6:
     # Product version
     st.markdown("**Any Class Loss (Product)**")
     fig_prod_loss = plot_contour(P1, P2, PROD_LOSS)
-    st.plotly_chart(fig_prod_loss, use_container_width=True, config={'toImageButtonOptions': {'width': 1046, 'height': 800, 'scale': 4}})
+    st.plotly_chart(fig_prod_loss, use_container_width=True)
 
 # Modified Loss - Power Mean vs Product
 st.subheader("Modified Loss - Power Mean vs Product")
@@ -199,11 +193,11 @@ with col7:
     # Power Mean version
     st.markdown("**Modified Loss (Power Mean)**")
     fig_modified_loss = plot_contour(P1, P2, MODIFIED_LOSS)
-    st.plotly_chart(fig_modified_loss, use_container_width=True, config={'toImageButtonOptions': {'width': 1046, 'height': 800, 'scale': 4}})
+    st.plotly_chart(fig_modified_loss, use_container_width=True)
 
 with col8:
     # Product version
     st.markdown("**Modified Loss (Product)**")
     fig_modified_prod_loss = plot_contour(P1, P2, MODIFIED_PROD_LOSS)
-    st.plotly_chart(fig_modified_prod_loss, use_container_width=True, config={'toImageButtonOptions': {'width': 1046, 'height': 800, 'scale': 4}})
+    st.plotly_chart(fig_modified_prod_loss, use_container_width=True)
 
