@@ -5,3 +5,4 @@ numpy
 scikit-learn
 matplotlib
 pytorch-lightning 
+inplace-abn
