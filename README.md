@@ -547,7 +547,7 @@ This tool is particularly useful for understanding how the auxiliary loss term e
 If you find this work useful in your research, please consider citing:
 
 ```bibtex
-@article{yourname2024gmean,
+@article{tissera2025anyclass,
   title={Any-Class Presence Likelihood for Robust Multi-Label Classification with Abundant Negative Data},
   author={Tissera, Dumindu and Awadallah, Omar and Danish, Muhammad Umair and Sadhu, Ayan and Grolinger, Katarina},
   journal={arXiv preprint arXiv:2506.05721},
